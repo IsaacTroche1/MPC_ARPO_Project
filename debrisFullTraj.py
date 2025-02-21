@@ -5,66 +5,42 @@ import sympy as sy
 import math
 from scipy import sparse
 from numpy import random
-import matplotlib.pyplot as plt
 import control as ct
+from mpcsim import (SimConditions,MPCParams,Debris,FailsafeParams, SimRun)
 
 
-def debrisFullTraj(distScale, ECRscale, noiseRepeat, distTol, angTol):
-    
-    # forcePlot = True
-    # distScale = 1 #1
-    # ECRscale = 50000  #500000 #1
-    # noiseRepeat = 50
-    # distTol = 0.2
-    # angTol = 45
 
-    toPlot = False
+def debrisFullTraj(sim_conditions:SimConditions, mpc_params:MPCParams, debris:Debris, fail_params:FailsafeParams):
+
+    isReject = sim_conditions.isReject
+    noiseRepeat = sim_conditions.noise.noise_length
+    distTol = sim_conditions.suc_cond[0]
+    angTol = sim_conditions.suc_cond[1]
 
     #Noise characteristics
-    sig_x = 0.3
-    sig_y = 0.3
-    sig_xd = 0
-    sig_yd = 0
-    sigMat = np.diag([sig_x, sig_y, sig_xd, sig_yd])
-    Qw = np.diag([sig_x**2, sig_y**2, sig_xd**2, sig_yd**2])
+    sigMat = sim_conditions.noise.constructSigMat()
     #random.seed(123)
 
     #Simulation Constants
-    gam = 10*(np.pi/180)
-    rp = 2.5
-    rtot = 1.5
-    phi = 0*(np.pi/180)
-    n = 1.107e-3
-    T = 0.5
+    gam = sim_conditions.los_ang
+    rp = sim_conditions.r_p
+    rtot = sim_conditions.r_tol
+    phi = sim_conditions.hatch_ofst
+    n = sim_conditions.mean_mtn
+    T = sim_conditions.time_stp
 
     # Initial and reference states
-    rx = rp
-    ry = 0
-    x0 = np.array([100.,10.,0.,0])
-    xr = np.array([rx,ry,0.,0.])
+    x0 = sim_conditions.x0
+    xr = sim_conditions.xr
+    rx = xr[0]
+    ry = xr[1]
 
     #Debris bounding box
-    center = np.array([40,0])
-    sideLength = 5
-    sqVerts = np.array([[center[0]+sideLength/2, center[1]+sideLength/2],
-                        [center[0]-sideLength/2, center[1]+sideLength/2],
-                        [center[0]-sideLength/2, center[1]-sideLength/2],
-                        [center[0]+sideLength/2, center[1]-sideLength/2]])
+    sqVerts = debris.constructVertArr()
 
-    #for debugging
-    def sparseBlockIndex(arr, blkinxs, nrows, ncols = np.nan):
-        arr = arr.toarray()
-        blx = blkinxs[0]
-        bly = blkinxs[1]
-        if ~np.isnan(ncols):
-            rowIndices = np.squeeze(blx*nrows*np.ones((1,nrows)) + range(nrows))
-            colIndices = np.squeeze(bly*ncols*np.ones((1,ncols)) + range(ncols))
-        else:
-            rowIndices = np.squeeze(blx*nrows*np.ones((1,nrows)) + range(nrows))
-            colIndices = np.squeeze(bly*nrows*np.ones((1,nrows)) + range(nrows))
-        block = arr[rowIndices.astype(int),:][:,colIndices.astype(int)]
-        return block
-
+    #delete these eventually
+    center = debris.center
+    sideLength = debris.side_length
 
     # Discrete time model of a quadcopter
     Ap = np.array([
@@ -135,37 +111,15 @@ def debrisFullTraj(distScale, ECRscale, noiseRepeat, distTol, angTol):
     # Constraints
     umin = np.hstack([-0.2, -0.2, np.zeros(ny)])
     umax = np.hstack([0.2, 0.2, np.inf*np.ones(ny)])
-    Vecr = ECRscale*np.ones(ny) #0 for hard constraints
-    Vecr[-2] = -1*Vecr[-2]
-    Vecr[-1] = 0 
+    Vecr = mpc_params.V_ecr
 
 
     D = np.hstack([np.zeros([ny,nu]),np.diag(Vecr)])
 
     # Objective function
-    Q = 2e+03*sparse.diags([2**2., 11.3**2., 0.01, 10])
-    R = sparse.diags([2.14, 1])
-    Q = 5e+03*sparse.diags([2.15**2., 11.3**2., 0.01, 200])
-    R = sparse.diags([2.14, 0.0001])
-    Q = 5e+03*sparse.diags([2.15**2., 11.3**2., 0.01, 200])
-    R = sparse.diags([4.5, 0.0001])
-    Q = 5e+03*sparse.diags([2.15**2., 11.3**2., 0.0001, 200])
-    R = sparse.diags([4.5, 0.0001])
-    Q = 5e+03*sparse.diags([2.15**2., 11.3**2., 0.0001, 150])
-    R = sparse.diags([4.5, 0.0001])
-    Q = 1.5e+03*sparse.diags([2**2., 11**2., 0.0001, 200])
-    R = 0.7**2*sparse.eye(2)
-    Q = 1.5e+03*sparse.diags([2**2., 11**2., 0.0001, 200])
-    R = sparse.diags([0.1, 0.001])
-
-
-    #new, untested 
-    Q = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900])
-    Ru = 1000**2*sparse.diags([1, 1])
-    Rs = 17**2*sparse.eye(ny)
-    Rs = 10**2*sparse.eye(ny)
-    Rs = 0.5**2*sparse.eye(ny)
-    Rs = 5**2*sparse.eye(ny)
+    Q = mpc_params.Q_state
+    Ru = mpc_params.R_input
+    Rs = mpc_params.R_slack
     R = sparse.block_diag([Ru,Rs])
 
     #LQR Stuff
@@ -199,9 +153,9 @@ def debrisFullTraj(distScale, ECRscale, noiseRepeat, distTol, angTol):
 
 
     # Horizons
-    Nx = 40
-    Nc = 5
-    Nb = 5
+    Nx = mpc_params.Nx
+    Nc = mpc_params.Nc
+    Nb = mpc_params.Nb
 
     # Cast MPC problem to a QP: x = (x(0),x(1),...,x(N),u(0),...,u(N-1))
     # - quadratic objective
@@ -278,7 +232,7 @@ def debrisFullTraj(distScale, ECRscale, noiseRepeat, distTol, angTol):
 
     Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
     Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
-    Qw = np.diag([40*sig_x**2, 40*sig_y**2])
+    Qw = np.diag([40*sigMat[0,0]**2, 40*sigMat[1,1]**2])
     Qw = Bnoise@Qw@np.transpose(Bnoise)
     for i in range(nsim):
 
@@ -366,8 +320,8 @@ def debrisFullTraj(distScale, ECRscale, noiseRepeat, distTol, angTol):
         else:
             xmin = np.array([1., 1., rp, 0., -np.inf])
         xmax = np.array([np.inf, np.inf, np.inf, np.absolute(x0[0]-rx) + np.absolute(x0[1]-ry), np.inf])
-        lineq = np.hstack([np.kron(np.ones(Nb+1), xmin), np.kron(np.ones(Nx-Nb),-np.inf*np.ones(ny)), np.kron(np.ones(Nc), umin), distScale*xestO[4:6,i+1]]) #assume 0 est disturbance at start
-        uineq = np.hstack([np.kron(np.ones(Nb+1), xmax), np.kron(np.ones(Nx-Nb), np.inf*np.ones(ny)), np.kron(np.ones(Nc), umax), distScale*xestO[4:6,i+1]])
+        lineq = np.hstack([np.kron(np.ones(Nb+1), xmin), np.kron(np.ones(Nx-Nb),-np.inf*np.ones(ny)), np.kron(np.ones(Nc), umin), isReject*xestO[4:6,i+1]]) #assume 0 est disturbance at start
+        uineq = np.hstack([np.kron(np.ones(Nb+1), xmax), np.kron(np.ones(Nx-Nb), np.inf*np.ones(ny)), np.kron(np.ones(Nc), umax), isReject*xestO[4:6,i+1]])
         l[(Nx+1)*nx:] = lineq
         u[(Nx+1)*nx:] = uineq
         prob.update(Ax = A.data, l=l, u=u)
@@ -430,6 +384,7 @@ def debrisFullTraj(distScale, ECRscale, noiseRepeat, distTol, angTol):
     xSamps = np.arange(0,110,xInt)
     xTime = [T*x for x in range(iterm)]
 
-    return iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, noiseStored
+    sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, noiseStored)
+    return sim_run
 
 #debrisFullTraj(1, 50000, 50, 0.2, 45)
