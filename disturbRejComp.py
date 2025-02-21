@@ -25,32 +25,34 @@ xCircSq = np.square(xCirc)
 topCircle = np.sqrt(rp**2-np.round(xCircSq,2))
 botCircle = -np.sqrt(rp**2-np.round(xCircSq,2))
 
-# ifail1, xTime1, xestO1, xtrueP1, noiseStored1 = disturbanceReject(50, 0, False)
-# ifail2, xTime2, xestO2, xtrueP2, noiseStored2 = disturbanceReject(50, 1, False)
+ifail1, xTime1, xestO1, xtrueP1, noiseStored1 = disturbanceReject(50, 0, False)
+ifail2, xTime2, xestO2, xtrueP2, noiseStored2 = disturbanceReject(50, 1, False)
 
 rx = rp
 ry = 0
 xr = np.array([rx,ry,0.,0.])
 
-#monte carlo loop around this
-MCnum = 200
-errNon = np.empty(MCnum)
-errComp = np.empty(MCnum)
-for i in range(MCnum):
-    print(i)
-    ifail1, xTime1, xestO1, xtrueP1, noiseStored1 = disturbanceReject(50, 0, False) #50 is good
-    ifail2, xTime2, xestO2, xtrueP2, noiseStored2 = disturbanceReject(50, 1, False)
-    errDist1 = np.linalg.norm(xtrueP1[:,ifail1]-xr)
-    errDist2 = np.linalg.norm(xtrueP2[:,ifail2]-xr)
-    errNon[i] = errDist1
-    errComp[i] = errDist2
+#This comment is a test
 
-
-avgDistNon = np.mean(errNon)
-avgDistComp = np.mean(errComp)
-
-print(ifail1)
-print(ifail2)
+# #monte carlo loop around this
+# MCnum = 200
+# errNon = np.empty(MCnum)
+# errComp = np.empty(MCnum)
+# for i in range(MCnum):
+#     print(i)
+#     ifail1, xTime1, xestO1, xtrueP1, noiseStored1 = disturbanceReject(50, 0, False) #50 is good
+#     ifail2, xTime2, xestO2, xtrueP2, noiseStored2 = disturbanceReject(50, 1, False)
+#     errDist1 = np.linalg.norm(xtrueP1[:,ifail1]-xr)
+#     errDist2 = np.linalg.norm(xtrueP2[:,ifail2]-xr)
+#     errNon[i] = errDist1
+#     errComp[i] = errDist2
+#
+#
+# avgDistNon = np.mean(errNon)
+# avgDistComp = np.mean(errComp)
+#
+# print(ifail1)
+# print(ifail2)
 
 plt.figure(1)
 plt.plot(xCirc,topCircle)
