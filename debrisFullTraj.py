@@ -108,32 +108,6 @@ def debrisFullTraj(distScale, ECRscale, noiseRepeat, distTol, angTol):
         func = sy.lambdify((x),func_ij)
         eAxInt[i,j] = sp.integrate.quad(func,0.,T)[0]
     Bd = sparse.csc_matrix(eAxInt@Bp)
-    # Ad1 = Ad.toarray()
-    # Ad2 = eAxF(T)
-    # AdD = Ad2-Ad1
-
-    # #Testing discretized system
-    # x0 = np.zeros(nx)
-    # tFin = 10
-    # dt = 0.01
-    # tCont = np.arange(0,tFin+dt,dt)
-    # tDisc = np.arange(0,tFin+T,T)
-    # xCont = np.empty([nx,tCont.shape[0]])
-    # xCont[:,0] = x0
-    # xDisc= np.empty([nx,tDisc.shape[0]])
-    # xDisc[:,0] = x0
-    # u = np.array([1,1])
-
-    # for i in range(1,tCont.shape[0]):
-    #     xCont[:,i] = xCont[:,i-1] + (A@xCont[:,i-1] + B@u)*dt
-
-    # for i in range(1,tDisc.shape[0]):
-    #     xDisc[:,i] = Ad@xDisc[:,i-1] + Bd@u
-
-    # plt.figure(1)
-    # plt.plot(tCont,xCont[0,:])
-    # plt.plot(tDisc,xDisc[0,:])
-    # plt.show()
 
     #Observer and dynamic systems
     Ao = sp.linalg.block_diag(Ad.toarray(), Adi)
@@ -455,78 +429,7 @@ def debrisFullTraj(distScale, ECRscale, noiseRepeat, distTol, angTol):
     xInt = 0.1
     xSamps = np.arange(0,110,xInt)
     xTime = [T*x for x in range(iterm)]
-    if (toPlot):
-        #Plotting Constraints and Obstacles
-        yVertSamps = np.arange(-10,10+xInt,xInt)
-        xVertSamps = np.ones(yVertSamps.shape)
-        yConeL = ((rp-rtot)*math.sin(gam)/(math.cos(phi-gam))) + math.tan(phi-gam)*xSamps
-        yConeU = -((rp-rtot)*math.sin(gam)/(math.cos(phi+gam))) + math.tan(phi+gam)*xSamps
-        vertCons = rp*math.sin(gam)
-        vertCons = rp
-        xVertSamps = xVertSamps*vertCons
-        xCirc = np.arange(-rp,rp+xInt,xInt)
-        xCircSq = np.square(xCirc)
-        topCircle = np.sqrt(rp**2-np.round(xCircSq,2))
-        botCircle = -np.sqrt(rp**2-np.round(xCircSq,2))
 
-        print(succTraj)
-        print(minDist)
-        print(minAng)
-
-        #plot MPC portion
-        plt.figure(1)
-        plt.plot(np.array([sqVerts[1,0],sqVerts[0,0]]),np.array([sqVerts[1,1],sqVerts[0,1]]))
-        plt.plot(np.array([sqVerts[2,0],sqVerts[3,0]]),np.array([sqVerts[2,1],sqVerts[3,1]]))
-        plt.plot(np.array([sqVerts[2,0],sqVerts[2,0]]),np.array([sqVerts[2,1],sqVerts[1,1]]))
-        plt.plot(np.array([sqVerts[3,0],sqVerts[3,0]]),np.array([sqVerts[3,1],sqVerts[0,1]]))
-        plt.plot(xCirc,topCircle)
-        plt.plot(xCirc,botCircle)
-        plt.plot(xSamps,yConeL)
-        plt.plot(xSamps,yConeU)
-        plt.plot(xVertSamps,yVertSamps)
-        for i in range(iterm-1):
-            plt.plot(xtruePiece[0,i:i+2],xtruePiece[1,i:i+2], color = colorList[i+1])
-        ax = plt.gca()
-        ax.set_aspect('equal')
-        plt.show()
-
-        
-        plt.figure(3)
-        x1p = plt.subplot2grid((6, 3), (0, 0), rowspan=1, colspan=3)
-        x2p = plt.subplot2grid((6, 3), (1, 0), rowspan=1, colspan=3)
-        x3p = plt.subplot2grid((6, 3), (2, 0), rowspan=1, colspan=3)
-        x4p = plt.subplot2grid((6, 3), (3, 0), rowspan=1, colspan=3)
-        d1p = plt.subplot2grid((6, 3), (4, 0), rowspan=1, colspan=3)
-        d2p = plt.subplot2grid((6, 3), (5, 0), rowspan=1, colspan=3)
-
-        x1p.plot(xTime,xtruePiece[0,:iterm+1])
-        x1p.plot(xTime,xestO[0,:iterm])
-        x2p.plot(xTime,xtruePiece[1,:iterm+1])
-        x2p.plot(xTime,xestO[1,:iterm])
-        x3p.plot(xTime,xtruePiece[2,:iterm+1])
-        x3p.plot(xTime,xestO[2,:iterm])
-        x4p.plot(xTime,xtruePiece[3,:iterm+1])
-        x4p.plot(xTime,xestO[3,:iterm])
-        d1p.plot(xTime,noiseStored[0,:iterm])
-        d1p.plot(xTime,xestO[4,:iterm])
-        d2p.plot(xTime,noiseStored[1,:iterm])
-        d2p.plot(xTime,xestO[5,:iterm])
-        plt.show()
-
-        plt.figure(4)
-        u1p = plt.subplot2grid((2, 3), (0, 0), rowspan=1, colspan=3)
-        u2p = plt.subplot2grid((2, 3), (1, 0), rowspan=1, colspan=3)
-
-
-        uTime = [T*x for x in range(1,iterm+1)]
-        u1p.plot(uTime,ctrls[0,:iterm])
-        u2p.plot(uTime,ctrls[1,:iterm])
-
-
-        plt.figure(5)
-        plt.plot(np.abs(xtruePiece[0,:iterm+1]-rx)+np.abs(xtruePiece[1,:iterm+1]-ry),np.abs(xtruePiece[0,:iterm+1]-rx)+np.abs(xtruePiece[1,:iterm+1]-ry))
-        plt.plot(np.abs(xtruePiece[0,:iterm+1]-rx)+np.abs(xtruePiece[1,:iterm+1]-ry),np.reshape(xv1n[0,:iterm], iterm))
-        plt.show()
     return iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, noiseStored
 
 #debrisFullTraj(1, 50000, 50, 0.2, 45)
