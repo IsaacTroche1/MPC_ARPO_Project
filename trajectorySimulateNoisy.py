@@ -7,6 +7,7 @@ from scipy import sparse
 from numpy import random
 import control as ct
 from mpcsim import (SimConditions,MPCParams,Debris,FailsafeParams, SimRun)
+from simhelpers import (configureDynamicConstraints)
 
 
 
@@ -218,6 +219,9 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
     l = np.hstack([leq, lineq])
     u = np.hstack([ueq, uineq])
 
+    block_mats = (Aeq,Aineq2,Block12,Block21,AextRow,AextCol,C)
+    u_lim = (umin,umax)
+
     # Create an OSQP object
     prob = osqp.OSQP()
 
@@ -253,6 +257,7 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
     Qw = Bnoise@Qw@np.transpose(Bnoise)
     for i in range(nsim):
 
+        #Terminate sim conditions
         if (np.linalg.norm(xtrueP[0:2,i]) < rp or xtrueP[0,i] < rp - rtot):
             iterm = i
             break
@@ -305,40 +310,41 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
         prob.update(l=l, u=u)
 
         #Reconfigure velocity constraint
-        C1 = (-1, 1)[xestO[2,i+1] >= 0]
-        C2 = (-1, 1)[xestO[3,i+1] >= 0]
-        if (xestO[0,i+1] - (center[0] + sideLength/2) < 0 and xestO[0,i+1] - (center[0] - sideLength/2) > 0):
-            slope = (xestO[1,i+1]-sqVerts[1,1])/(xestO[0,i+1]-sqVerts[1,0])
-            inter = -slope*xestO[0,i+1] + xestO[1,i+1]
-        elif (hasDebris):
-            slope = (xestO[1,i+1]-sqVerts[0,1])/(xestO[0,i+1]-sqVerts[0,0])
-            inter = -slope*xestO[0,i+1] + xestO[1,i+1]
-        C = np.array([
-                [C_11, C_12, 0., 0.],
-                [C_21, C_22, 0., 0.],
-                [1., 0., 0., 0.],
-                [0., 0., C1, C2],
-                [-slope, 1., 0., 0.],
-                ])
-        Aineq1 = sparse.kron(sparse.eye(Nx+1), C)
-        Aineq2 = sparse.kron(sparse.eye(Nc), sparse.eye(nu+ny))
-        Block12 = sparse.vstack([np.kron(np.eye(Nc),D), np.kron(np.zeros([(Nx+1)-Nc,Nc]),np.zeros([ny,nu+ny]))])
-        Block21 = sparse.coo_matrix((Nc*(nu+ny),(Nx+1)*nx))
-        Aineq = sparse.block_array(([Aineq1, Block12],[Block21, Aineq2]), format='dia')
-        A = sparse.vstack([Aeq, Aineq], format='csc')
-        AextCol = sparse.vstack([np.zeros([nx,ndi]), np.kron(np.ones([Nx,1]),np.vstack([np.eye(ndi),np.zeros([nx-ndi,ndi])])), np.kron(np.zeros([(Nx+1),1]), np.zeros([ny,ndi])), np.kron(np.zeros([(Nc),1]), np.zeros([nu+ny,ndi]))])
-        AextRow = sparse.csc_matrix(np.hstack([np.kron(np.ones([1,Nx+1]),np.zeros([ndi,nx])), np.kron(np.ones([1,Nc]),np.zeros([ndi,nu+ny])), np.eye(ndi)]))
-        A = sparse.hstack([A, AextCol])
-        A = sparse.vstack([A, AextRow])
-        if (xestO[0,i+1] - (center[0] + sideLength/2) < 0 and xestO[0,i+1] - (center[0] - sideLength/2) > 0):
-            xmin = np.array([1., 1., rp, 0., inter])
-        elif (xestO[0,i+1] - (center[0] + sideLength/2) < 20 and xestO[0,i+1] - (center[0] + sideLength/2) > 0):
-            xmin = np.array([1., 1., rp, 0., inter])
-        else:
-            xmin = np.array([1., 1., rp, 0., -np.inf])
-        xmax = np.array([np.inf, np.inf, np.inf, np.absolute(x0[0]-rx) + np.absolute(x0[1]-ry), np.inf])
-        lineq = np.hstack([np.kron(np.ones(Nb+1), xmin), np.kron(np.ones(Nx-Nb),-np.inf*np.ones(ny)), np.kron(np.ones(Nc), umin), isReject*xestO[4:6,i+1]]) #assume 0 est disturbance at start
-        uineq = np.hstack([np.kron(np.ones(Nb+1), xmax), np.kron(np.ones(Nx-Nb), np.inf*np.ones(ny)), np.kron(np.ones(Nc), umax), isReject*xestO[4:6,i+1]])
+        # C1 = (-1, 1)[xestO[2,i+1] >= 0]
+        # C2 = (-1, 1)[xestO[3,i+1] >= 0]
+        # if (xestO[0,i+1] - (center[0] + sideLength/2) < 0 and xestO[0,i+1] - (center[0] - sideLength/2) > 0):
+        #     slope = (xestO[1,i+1]-sqVerts[1,1])/(xestO[0,i+1]-sqVerts[1,0])
+        #     inter = -slope*xestO[0,i+1] + xestO[1,i+1]
+        # elif (hasDebris):
+        #     slope = (xestO[1,i+1]-sqVerts[0,1])/(xestO[0,i+1]-sqVerts[0,0])
+        #     inter = -slope*xestO[0,i+1] + xestO[1,i+1]
+        # C = np.array([
+        #         [C_11, C_12, 0., 0.],
+        #         [C_21, C_22, 0., 0.],
+        #         [1., 0., 0., 0.],
+        #         [0., 0., C1, C2],
+        #         [-slope, 1., 0., 0.],
+        #         ])
+        # Aineq1 = sparse.kron(sparse.eye(Nx+1), C)
+        # Aineq2 = sparse.kron(sparse.eye(Nc), sparse.eye(nu+ny))
+        # Block12 = sparse.vstack([np.kron(np.eye(Nc),D), np.kron(np.zeros([(Nx+1)-Nc,Nc]),np.zeros([ny,nu+ny]))])
+        # Block21 = sparse.coo_matrix((Nc*(nu+ny),(Nx+1)*nx))
+        # Aineq = sparse.block_array(([Aineq1, Block12],[Block21, Aineq2]), format='dia')
+        # A = sparse.vstack([Aeq, Aineq], format='csc')
+        # AextCol = sparse.vstack([np.zeros([nx,ndi]), np.kron(np.ones([Nx,1]),np.vstack([np.eye(ndi),np.zeros([nx-ndi,ndi])])), np.kron(np.zeros([(Nx+1),1]), np.zeros([ny,ndi])), np.kron(np.zeros([(Nc),1]), np.zeros([nu+ny,ndi]))])
+        # AextRow = sparse.csc_matrix(np.hstack([np.kron(np.ones([1,Nx+1]),np.zeros([ndi,nx])), np.kron(np.ones([1,Nc]),np.zeros([ndi,nu+ny])), np.eye(ndi)]))
+        # A = sparse.hstack([A, AextCol])
+        # A = sparse.vstack([A, AextRow])
+        # if (xestO[0,i+1] - (center[0] + sideLength/2) < 0 and xestO[0,i+1] - (center[0] - sideLength/2) > 0):
+        #     xmin = np.array([1., 1., rp, 0., inter])
+        # elif (xestO[0,i+1] - (center[0] + sideLength/2) < 20 and xestO[0,i+1] - (center[0] + sideLength/2) > 0):
+        #     xmin = np.array([1., 1., rp, 0., inter])
+        # else:
+        #     xmin = np.array([1., 1., rp, 0., -np.inf])
+        # xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xestO[0,i+1]-rx) + np.absolute(xestO[1,i+1]-ry), np.inf])
+        # lineq = np.hstack([np.kron(np.ones(Nb+1), xmin), np.kron(np.ones(Nx-Nb),-np.inf*np.ones(ny)), np.kron(np.ones(Nc), umin), isReject*xestO[4:6,i+1]]) #assume 0 est disturbance at start
+        # uineq = np.hstack([np.kron(np.ones(Nb+1), xmax), np.kron(np.ones(Nx-Nb), np.inf*np.ones(ny)), np.kron(np.ones(Nc), umax), isReject*xestO[4:6,i+1]])
+        A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, xestO[:,i+1], block_mats, u_lim)
         l[(Nx+1)*nx:] = lineq
         u[(Nx+1)*nx:] = uineq
         prob.update(Ax = A.data, l=l, u=u)

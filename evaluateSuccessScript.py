@@ -53,7 +53,7 @@ C_refx = np.eye(1,4)
 sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, hatch_offset, mean_motion, sample_time, is_reject, success_cond, noises)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
 debris = Debris(center, side_length)
-#debris = None
+debris = None
 fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
@@ -61,7 +61,7 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 #Actual simulation
 # sim_run_test = trajectorySimulateNoisy(sim_conditions, mpc_params, fail_params, debris)
-# figurePlotSave(sim_conditions, debris, sim_run_test, 1)
+# figurePlotSave(sim_conditions, debris, sim_run_test, 0)
 
 i = 0
 direc = 'RunObjs/'
