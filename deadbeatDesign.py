@@ -53,8 +53,8 @@ for (i,j), func_ij in np.ndenumerate(eAx):
 Bd = eAxInt@Bp
 
 
-Crefx = np.array([0.,1.,0.,0.])
-nr = Crefx.shape[0]
+Crefy = np.array([0.,1.,0.,0.])
+nr = Crefy.shape[0]
 # Aaug = np.block([[Ad,np.zeros([nx,nr])],[Cref,np.zeros([nr,nr])]])
 # Baug = np.block([[Bd],[np.zeros([nr,nu])]])
 # Caug = np.hstack([Cref, np.zeros([nr,nr])])
@@ -72,38 +72,41 @@ nr = Crefx.shape[0]
 
 Bd_prune = np.reshape(Bd[:,1],(nx,1))[[1,3],]
 Ad_prune = Ad[[1,3],:][:,[1,3]]
-des_eig = np.array([0,0])
-K_prune = ct.acker(Ad_prune,Bd_prune,des_eig)
+C_prune = np.array([1,0])
 
-act_eigs = np.linalg.eigvals(Ad_prune-Bd_prune@K_prune)
+A_aug = np.block([[Ad_prune,np.zeros([2,1])],[C_prune,np.eye(1)]])
+B_aug = np.block([[Bd_prune],[np.zeros([1,1])]])
+des_eig = np.array([0,0,0])
+K_prune = ct.acker(A_aug,B_aug,des_eig)
+
+act_eigs = np.linalg.eigvals(A_aug-B_aug@K_prune)
 
 K_total = np.zeros([nu,nx])
 K_total[1,1] = K_prune[0,0]
 K_total[1,3] = K_prune[0,1]
+K_i = np.vstack([0,K_prune[0,2]])
 
 
 xtrue0 = np.array([20.,0.5,-0.2,0.])
-xr = np.array([0.,0.,0.,0.])
+xr = np.array([0.,1.,0.,0.])
 
 # Simulate in closed loop
 nsim = 100
 xtrueP = np.empty([nx,nsim+1])
-xintP = np.empty([nr,nsim+1])
+xintP = np.empty([1, nsim+1])
 ctrls = np.empty([nu,nsim])
 xtrueP[:,0] = xtrue0
-#xintP[:,0] = 0
-xintP[:,0] = xtrue0[1] - xr[1]
+xintP[0,0] = xtrue0[1] - xr[1]
 
 for i in range(nsim):
 
-    ctrl = -K_total@xtrueP[:,i]
-    if (np.linalg.norm(ctrl) > umax[0]):
-      ctrl[0] = ctrl[0]*(umax[0]/np.linalg.norm(ctrl))
-      ctrl[1] = ctrl[1]*(umax[0]/np.linalg.norm(ctrl))
+    ctrl = -K_total@xtrueP[:,i] - K_i@xintP[:,i]
+    # if (np.linalg.norm(ctrl) > umax[0]):
+    #   ctrl[0] = ctrl[0]*(umax[0]/np.linalg.norm(ctrl))
+    #   ctrl[1] = ctrl[1]*(umax[0]/np.linalg.norm(ctrl))
     ctrls[:,i] = ctrl
     xtrueP[:,i+1] = Ad@xtrueP[:,i] + Bd@ctrl
-    #xintP[:,i+1] = xintP[:,i] + Cref1@xtrueP[:,i] - xr[0]
-    #xintP[:,i+1] = xintP[:,i] + Cref2@xtrueP[:,i] - xr[1]
+    xintP[:,i+1] = xintP[:,i] + (Crefy@xtrueP[:,i] - xr[1])
 
 
 plt.figure(1)
