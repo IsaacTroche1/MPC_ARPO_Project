@@ -145,15 +145,23 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
     Kpf = Kf[:,:nx]
     Kif = Kf[:,nx:nx+nr]
 
-    #LQR Debris Avoidance
-    Qd = np.diag([0.00001, 50., 0.00001, 0.0001, 350.])  #for y
-    Rd = 100000*np.diag([1., 1.])
-    Crefy = np.array([[0,1,0,0]])
-    nr = Crefy.shape[0]
+    #Deadbeat Debris Avoidance
+    Crefy = np.array([[0.,1.,0.,0.]])
+    Bd_prune = np.reshape(Bd[:, 1], (nx, 1))[[1, 3],]
+    Ad_prune = Ad[[1, 3], :][:, [1, 3]]
+    C_prune = np.array([1, 0])
 
-    Kf = ct.dlqr(Ad.toarray(),Bd.toarray(),Qd,Rd, integral_action=Crefy)[0]
-    Kpd = Kf[:,:nx]
-    Kid = Kf[:,nx:nx+nr]
+    A_aug = np.block([[Ad_prune.toarray(), np.zeros([2, 1])], [C_prune, np.eye(1)]])
+    B_aug = np.block([[Bd_prune.toarray()], [np.zeros([1, 1])]])
+    des_eig = np.array([0, 0, 0])
+    K_prune = ct.acker(A_aug, B_aug, des_eig)
+
+    act_eigs = np.linalg.eigvals(A_aug - B_aug @ K_prune)
+
+    K_total = np.zeros([nu, nx])
+    K_total[1, 1] = K_prune[0, 0]
+    K_total[1, 3] = K_prune[0, 1]
+    K_i = np.vstack([0, K_prune[0, 2]])
 
 
     if ~(np.all(np.linalg.eigvals(S) > 0)):
@@ -258,7 +266,7 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
                 ifailsd.append(i)
                 #break
                 xintf = xintf + Crefy@xtrueP[:,i] - (center[1] + sideLength/2)
-                ctrl = -Kpd@xestO[:4,i] - Kid@xintf
+                ctrl = -K_total@xestO[:4,i] - K_i@xintf
             else:
                 ifailsf.append(i)
                 #break
