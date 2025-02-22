@@ -73,3 +73,25 @@ def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCPara
          isReject * xest[4:6]])
 
     return A, lineq, uineq
+
+def constructOsqpAeq(mpc_params:MPCParams, Ad, Bd, K, ny):
+
+    nx = Ad.shape[0]
+
+    Nx = mpc_params.Nx
+    Nc = mpc_params.Nc
+    Nb = mpc_params.Nb
+
+    Ax1 = sparse.kron(sparse.eye(Nc + 1), -sparse.eye(nx)) + sparse.kron(sparse.eye(Nc + 1, k=-1), Ad)
+    Ax2 = sparse.kron(sparse.eye(Nx - Nc), -sparse.eye(nx)) + sparse.kron(sparse.eye(Nx - Nc, k=-1), (Ad - Bd @ K))
+    Ax3 = sparse.block_diag([Ax1, Ax2], format='csr')
+    Ax4 = sparse.csr_matrix((Nx + 1, Nx + 1))
+    Ax4[Nc + 1, Nc] = 1
+    Ax4 = sparse.kron(Ax4, (Ad - Bd @ K))
+    Ax = Ax3 + Ax4
+    BuI = sparse.vstack([sparse.csc_matrix((1, Nc)), sparse.eye(Nc), sparse.csc_matrix((Nx - Nc, Nc))])
+    Bdaug = sparse.hstack([Bd, np.zeros([nx, ny])])
+    Bu = sparse.kron(BuI, Bdaug)
+    Aeq = sparse.hstack([Ax, Bu])
+
+    return Aeq

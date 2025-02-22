@@ -7,7 +7,7 @@ from scipy import sparse
 from numpy import random
 import control as ct
 from mpcsim import (SimConditions,MPCParams,Debris,FailsafeParams, SimRun)
-from simhelpers import (configureDynamicConstraints)
+from simhelpers import (configureDynamicConstraints,constructOsqpAeq)
 
 
 
@@ -174,24 +174,12 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
     Nc = mpc_params.Nc
     Nb = mpc_params.Nb
 
-    # Cast MPC problem to a QP: x = (x(0),x(1),...,x(N),u(0),...,u(N-1))
     # - quadratic objective
-    P = sparse.block_diag([sparse.kron(sparse.eye(Nx), Q), QN,
-                        sparse.kron(sparse.eye(Nc), R), 1*sparse.eye(ndi)], format='csc')
+    P = sparse.block_diag([sparse.kron(sparse.eye(Nx), Q), QN, sparse.kron(sparse.eye(Nc), R), 1*sparse.eye(ndi)], format='csc')
     # - linear objective
     q = np.hstack([np.kron(np.ones(Nx), -Q@xr), -QN@xr, np.zeros(Nc*(nu+ny)), np.zeros(ndi)])
     # - linear dynamics
-    Ax1 = sparse.kron(sparse.eye(Nc+1),-sparse.eye(nx)) + sparse.kron(sparse.eye(Nc+1, k=-1), Ad)
-    Ax2 = sparse.kron(sparse.eye(Nx-Nc),-sparse.eye(nx)) + sparse.kron(sparse.eye(Nx-Nc, k=-1), (Ad-Bd@K))
-    Ax3 = sparse.block_diag([Ax1, Ax2], format='csr')
-    Ax4 = sparse.csr_matrix((Nx+1,Nx+1))
-    Ax4[Nc+1,Nc] = 1
-    Ax4 = sparse.kron(Ax4, (Ad-Bd@K))
-    Ax = Ax3 + Ax4
-    BuI = sparse.vstack([sparse.csc_matrix((1, Nc)), sparse.eye(Nc), sparse.csc_matrix((Nx-Nc, Nc))])
-    Bdaug = sparse.hstack([Bd, np.zeros([nx,ny])])
-    Bu = sparse.kron(BuI, Bdaug)
-    Aeq = sparse.hstack([Ax, Bu])
+    Aeq = constructOsqpAeq(mpc_params, Ad, Bd, K, ny)
     leq = np.hstack([-x0, np.zeros(Nx*nx)])
     ueq = leq
 
@@ -200,22 +188,13 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
     Aineq2 = sparse.kron(sparse.eye(Nc), sparse.eye(nu+ny))
     Block12 = sparse.vstack([np.kron(np.eye(Nc),D), np.kron(np.zeros([(Nx+1)-Nc,Nc]),np.zeros([ny,nu+ny]))])
     Block21 = sparse.coo_matrix((Nc*(nu+ny),(Nx+1)*nx))
-    Aineq = sparse.block_array(([Aineq1, Block12],[Block21, Aineq2]), format='dia')
-    if (x0[0] - (center[0] + sideLength / 2) < 0 and x0[0] - (center[0] - sideLength / 2) > 0):
-        xmin = np.array([1., 1., rp, 0., inter])
-    elif (x0[0] - (center[0] + sideLength / 2) < 20 and x0[0] - (center[0] + sideLength / 2) > 0):
-        xmin = np.array([1., 1., rp, 0., inter])
-    else:
-        xmin = np.array([1., 1., rp, 0., -np.inf])
-    xmax = np.array([np.inf, np.inf, np.inf, np.absolute(x0[0]-rx) + np.absolute(x0[1]-ry), np.inf])
-    lineq = np.hstack([np.kron(np.ones(Nb+1), xmin), np.kron(np.ones(Nx-Nb),-np.inf*np.ones(ny)), np.kron(np.ones(Nc), umin), np.zeros([ndi,])]) #assume 0 est disturbance at start
-    uineq = np.hstack([np.kron(np.ones(Nb+1), xmax), np.kron(np.ones(Nx-Nb), np.inf*np.ones(ny)), np.kron(np.ones(Nc), umax), np.zeros([ndi,])])
-    # - OSQP constraint
-    A = sparse.vstack([Aeq, Aineq], format='csc')
-    AextCol = sparse.vstack([np.zeros([nx,ndi]), np.kron(np.ones([Nx,1]),np.vstack([np.eye(ndi),np.zeros([nx-ndi,ndi])])), np.kron(np.zeros([(Nx+1),1]), np.zeros([ny,ndi])), np.kron(np.zeros([(Nc),1]), np.zeros([nu+ny,ndi]))])
-    AextRow = sparse.csc_matrix(np.hstack([np.kron(np.ones([1,Nx+1]),np.zeros([ndi,nx])), np.kron(np.ones([1,Nc]),np.zeros([ndi,nu+ny])), np.eye(ndi)]))
-    A = sparse.hstack([A, AextCol])
-    A = sparse.vstack([A, AextRow])
+    AextCol = sparse.vstack([np.zeros([nx, ndi]), np.kron(np.ones([Nx, 1]), np.vstack([np.eye(ndi), np.zeros([nx - ndi, ndi])])),np.kron(np.zeros([(Nx + 1), 1]), np.zeros([ny, ndi])), np.kron(np.zeros([(Nc), 1]), np.zeros([nu + ny, ndi]))])
+    AextRow = sparse.csc_matrix(np.hstack([np.kron(np.ones([1, Nx + 1]), np.zeros([ndi, nx])), np.kron(np.ones([1, Nc]), np.zeros([ndi, nu + ny])),np.eye(ndi)]))
+
+    block_mats = (Aeq, Aineq2, Block12, Block21, AextRow, AextCol, C)
+    u_lim = (umin, umax)
+
+    A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, np.hstack([x0,0,0]), block_mats, u_lim)
     l = np.hstack([leq, lineq])
     u = np.hstack([ueq, uineq])
 
@@ -270,7 +249,7 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
             if (xestO[0,i] - (center[0] + sideLength/2) < 0 and xestO[0,i] - (center[0] - sideLength/2) > 0 and xestO[1,i] < (center[1] + sideLength/2) and xestO[1,i] > (center[1] - sideLength/2)):
                 ifailsd.append(i)
                 #break
-                xintf = xintf + Crefy@xtrueP[:,i] - (center[1] + sideLength/2)
+                xintf = xintf + Crefy@xtrueP[:,i] - (center[1] + sideLength/2) #theres a potential bug here with the sign of the control, test in animation
                 ctrl = -K_total@xestO[:4,i] - K_i@xintf
             else:
                 ifailsf.append(i)
@@ -310,40 +289,6 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
         prob.update(l=l, u=u)
 
         #Reconfigure velocity constraint
-        # C1 = (-1, 1)[xestO[2,i+1] >= 0]
-        # C2 = (-1, 1)[xestO[3,i+1] >= 0]
-        # if (xestO[0,i+1] - (center[0] + sideLength/2) < 0 and xestO[0,i+1] - (center[0] - sideLength/2) > 0):
-        #     slope = (xestO[1,i+1]-sqVerts[1,1])/(xestO[0,i+1]-sqVerts[1,0])
-        #     inter = -slope*xestO[0,i+1] + xestO[1,i+1]
-        # elif (hasDebris):
-        #     slope = (xestO[1,i+1]-sqVerts[0,1])/(xestO[0,i+1]-sqVerts[0,0])
-        #     inter = -slope*xestO[0,i+1] + xestO[1,i+1]
-        # C = np.array([
-        #         [C_11, C_12, 0., 0.],
-        #         [C_21, C_22, 0., 0.],
-        #         [1., 0., 0., 0.],
-        #         [0., 0., C1, C2],
-        #         [-slope, 1., 0., 0.],
-        #         ])
-        # Aineq1 = sparse.kron(sparse.eye(Nx+1), C)
-        # Aineq2 = sparse.kron(sparse.eye(Nc), sparse.eye(nu+ny))
-        # Block12 = sparse.vstack([np.kron(np.eye(Nc),D), np.kron(np.zeros([(Nx+1)-Nc,Nc]),np.zeros([ny,nu+ny]))])
-        # Block21 = sparse.coo_matrix((Nc*(nu+ny),(Nx+1)*nx))
-        # Aineq = sparse.block_array(([Aineq1, Block12],[Block21, Aineq2]), format='dia')
-        # A = sparse.vstack([Aeq, Aineq], format='csc')
-        # AextCol = sparse.vstack([np.zeros([nx,ndi]), np.kron(np.ones([Nx,1]),np.vstack([np.eye(ndi),np.zeros([nx-ndi,ndi])])), np.kron(np.zeros([(Nx+1),1]), np.zeros([ny,ndi])), np.kron(np.zeros([(Nc),1]), np.zeros([nu+ny,ndi]))])
-        # AextRow = sparse.csc_matrix(np.hstack([np.kron(np.ones([1,Nx+1]),np.zeros([ndi,nx])), np.kron(np.ones([1,Nc]),np.zeros([ndi,nu+ny])), np.eye(ndi)]))
-        # A = sparse.hstack([A, AextCol])
-        # A = sparse.vstack([A, AextRow])
-        # if (xestO[0,i+1] - (center[0] + sideLength/2) < 0 and xestO[0,i+1] - (center[0] - sideLength/2) > 0):
-        #     xmin = np.array([1., 1., rp, 0., inter])
-        # elif (xestO[0,i+1] - (center[0] + sideLength/2) < 20 and xestO[0,i+1] - (center[0] + sideLength/2) > 0):
-        #     xmin = np.array([1., 1., rp, 0., inter])
-        # else:
-        #     xmin = np.array([1., 1., rp, 0., -np.inf])
-        # xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xestO[0,i+1]-rx) + np.absolute(xestO[1,i+1]-ry), np.inf])
-        # lineq = np.hstack([np.kron(np.ones(Nb+1), xmin), np.kron(np.ones(Nx-Nb),-np.inf*np.ones(ny)), np.kron(np.ones(Nc), umin), isReject*xestO[4:6,i+1]]) #assume 0 est disturbance at start
-        # uineq = np.hstack([np.kron(np.ones(Nb+1), xmax), np.kron(np.ones(Nx-Nb), np.inf*np.ones(ny)), np.kron(np.ones(Nc), umax), isReject*xestO[4:6,i+1]])
         A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, xestO[:,i+1], block_mats, u_lim)
         l[(Nx+1)*nx:] = lineq
         u[(Nx+1)*nx:] = uineq
@@ -386,15 +331,6 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
             break
 
 
-
-    colorList = [0 for x in range(iterm)]
-    for i in impc:
-        colorList[i] = 'b'
-    for i in ifailsf:
-        colorList[i] = 'r'
-    for i in ifailsd:
-        colorList[i] = 'y'
-
     controllerSeq = np.empty(iterm)
     for i in impc:
         controllerSeq[i] = 1
@@ -402,10 +338,6 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
         controllerSeq[i] = 2
     for i in ifailsd:
         controllerSeq[i] = 3
-
-    xInt = 0.1
-    xSamps = np.arange(0,110,xInt)
-    xTime = [T*x for x in range(iterm)]
 
     sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, noiseStored)
     return sim_run

@@ -126,10 +126,10 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     botCircle = -np.sqrt(rp ** 2 - np.round(xCircSq, 2))
 
 
-    # plt.figure(figsize = (16,9), dpi = 80)
+
     ConsComb, (geoConp, velConp) = plt.subplots(nrows=2, ncols=1)
-    ConsComb.set_size_inches((5, 6))
-    ConsComb.set_dpi(200)
+    ConsComb.set_size_inches((5,5.5))
+    ConsComb.set_dpi(300)
 
     if debris is not None:
         geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#00FF00')
@@ -149,9 +149,9 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
                    Line2D([0], [0], color='r'),
                    Line2D([0], [0], color='y')]
     geoConp.set_aspect('equal')
-    geoConp.title.set_text('Trajectory and Contraints')
-    geoConp.set_ylabel('$\delta$y LVLH (m)')
-    geoConp.set_xlabel('$\delta$x LVLH (m)')
+    geoConp.title.set_text('Trajectory and Contraints (LVLH)')
+    geoConp.set_ylabel('$\delta$y (m)')
+    geoConp.set_xlabel('$\delta$x (m)')
     geoConp.legend(customLines, ['MPC Controller', 'LQR Failsafe', 'LQR Debris Avoidance'], loc='lower right',
                    prop={'size': 5})
     velConp.set_xlabel('Relative Position L1 Norm (m)')
@@ -184,6 +184,26 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     d2p.plot(xTime, noiseStored[1, :iterm])
     d2p.plot(xTime, xestO[5, :iterm])
 
+    estTrueStates.set_size_inches((7, 7.5))
+    estTrueStates.set_dpi(300)
+
+    x1p.title.set_text('True and Estimated States (LVLH)')
+    x1p.set_ylabel('$\mathregular{\delta}$x (m)')
+    x1p.legend(['True','Estimated'], loc='upper right')
+    x1p.xaxis.set_visible(False)
+    x2p.set_ylabel('$\mathregular{\delta}$y (m)')
+    x2p.xaxis.set_visible(False)
+    x3p.set_ylabel('$\mathregular{\delta\dot{y}}$ (m/s)')
+    x3p.xaxis.set_visible(False)
+    x4p.set_ylabel('$\mathregular{\delta\dot{y}}$ (m/s)')
+    x4p.xaxis.set_visible(False)
+    d1p.set_ylabel('$\mathregular{d_x}$ (m)')
+    d1p.xaxis.set_visible(False)
+    d2p.set_ylabel('$\mathregular{d_y}$ (m)')
+    d2p.set_xlabel('Time (s)')
+
+    estTrueStates.align_labels()
+
     controlPlot = plt.figure(3)
     u1p = plt.subplot2grid((2, 3), (0, 0), rowspan=1, colspan=3)
     u2p = plt.subplot2grid((2, 3), (1, 0), rowspan=1, colspan=3)
@@ -192,14 +212,19 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     u1p.plot(uTime, ctrls[0, :iterm])
     u2p.plot(uTime, ctrls[1, :iterm])
 
+    u1p.title.set_text('Actuator Commands (LVLH)')
+    u1p.set_ylabel('$\mathregular{u_x}$ (m/s^2)')
+    u2p.set_ylabel('$\mathregular{u_y}$ (m/s^2)')
+    u2p.set_xlabel('Time (s)')
+
     if saveCounter != None:
         iter = str(saveCounter) + '.png'
         direc = 'RunFigs/'
         # TWODtraj.savefig(direc + '2Dtraj' + iter)
-        estTrueStates.savefig(direc + 'trueANDest' + iter)
-        controlPlot.savefig(direc + 'contrHist' + iter)
+        estTrueStates.savefig(direc + 'trueANDest' + iter,dpi=300)
+        controlPlot.savefig(direc + 'contrHist' + iter,dpi=300)
         # velCon.savefig(direc + 'velConstraint' + iter)
-        ConsComb.savefig(direc + 'combCons' + iter)
+        ConsComb.savefig(direc + 'combCons' + iter,dpi=300)
         plt.close('all')
     else:
         plt.show()
