@@ -10,7 +10,7 @@ from mpcsim import (SimConditions,MPCParams,Debris,FailsafeParams, SimRun)
 
 
 
-def debrisFullTraj(sim_conditions:SimConditions, mpc_params:MPCParams, debris:Debris, fail_params:FailsafeParams):
+def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
     isReject = sim_conditions.isReject
     noiseRepeat = sim_conditions.noise.noise_length
@@ -35,12 +35,18 @@ def debrisFullTraj(sim_conditions:SimConditions, mpc_params:MPCParams, debris:De
     rx = xr[0]
     ry = xr[1]
 
-    #Debris bounding box
-    sqVerts = debris.constructVertArr()
+    if debris is not None:
+        #Debris bounding box
+        sqVerts = debris.constructVertArr()
 
-    #delete these eventually
-    center = debris.center
-    sideLength = debris.side_length
+        #delete these eventually
+        center = debris.center
+        sideLength = debris.side_length
+        hasDebris = True
+    else:
+        center = (-np.inf,-np.inf)
+        sideLength = 0
+        hasDebris = False
 
     # Discrete time model of a quadcopter
     Ap = np.array([
@@ -61,14 +67,10 @@ def debrisFullTraj(sim_conditions:SimConditions, mpc_params:MPCParams, debris:De
     ])
     [nx, nu] = Bp.shape
 
-    Bdi = 1*np.eye(2) #try with T instead of 1
-
     Cm = np.array([
     [1., 0., 0., 0.],
     [0., 1., 0., 0.],
     ])
-
-    Cdi = np.eye(2)
 
     [nx, nu] = Bp.shape
     nym = Cm.shape[0]
@@ -96,8 +98,14 @@ def debrisFullTraj(sim_conditions:SimConditions, mpc_params:MPCParams, debris:De
     C_12 = -math.cos(phi+gam)/((rp-rtot)*math.sin(gam))
     C_21 = -math.sin(phi-gam)/((rp-rtot)*math.sin(gam))
     C_22 = math.cos(phi-gam)/((rp-rtot)*math.sin(gam))
-    slope = (x0[1]-sqVerts[0,1])/(x0[0]-sqVerts[0,0])
-    inter = -slope*x0[0] + x0[1]
+    if (x0[0] - (center[0] + sideLength / 2) < 0 and x0[0] - (center[0] - sideLength / 2) > 0):
+        slope = (x0[1] - sqVerts[1, 1]) / (x0[0] - sqVerts[1, 0])
+        inter = -slope * x0[0] + x0[1]
+    elif (hasDebris):
+        slope = (x0[1] - sqVerts[0, 1]) / (x0[0] - sqVerts[0, 0])
+        inter = -slope * x0[0] + x0[1]
+    else:
+        slope = 0
     C = np.array([
             [C_11, C_12, 0., 0.],
             [C_21, C_22, 0., 0.],
@@ -122,15 +130,15 @@ def debrisFullTraj(sim_conditions:SimConditions, mpc_params:MPCParams, debris:De
     Rs = mpc_params.R_slack
     R = sparse.block_diag([Ru,Rs])
 
-    #LQR Stuff
+    #Virtual LQR Controller
     S = sp.linalg.solve_discrete_are(Ad.toarray(), Bd.toarray(), Q.toarray(), Ru.toarray())
     K = np.asarray(np.linalg.inv(Ru + np.transpose(Bd)@S@Bd)@(np.transpose(Bd)@S@Ad))
     QN = S
 
     #LQR Failsafe
-    Qf = 0.005*np.diag([0.0001, 1, 100000., 1., 0.01])
-    Rf = 100*np.diag([1, 1])
-    Crefx = np.eye(1,nx)
+    Qf = fail_params.Q_fail
+    Rf = fail_params.R_fail
+    Crefx = fail_params.C_int
     nr = Crefx.shape[0]
 
     Kf = ct.dlqr(Ad.toarray(),Bd.toarray(),Qf,Rf, integral_action=Crefx)[0]
@@ -184,14 +192,15 @@ def debrisFullTraj(sim_conditions:SimConditions, mpc_params:MPCParams, debris:De
     Block12 = sparse.vstack([np.kron(np.eye(Nc),D), np.kron(np.zeros([(Nx+1)-Nc,Nc]),np.zeros([ny,nu+ny]))])
     Block21 = sparse.coo_matrix((Nc*(nu+ny),(Nx+1)*nx))
     Aineq = sparse.block_array(([Aineq1, Block12],[Block21, Aineq2]), format='dia')
-    xmin = np.array([1., 1., rp, 0.,-np.inf])
-    xmax = np.array([np.inf, np.inf, np.inf, np.absolute(x0[0]-rx) + np.absolute(x0[1]-ry), np.inf]) 
+    if (x0[0] - (center[0] + sideLength / 2) < 0 and x0[0] - (center[0] - sideLength / 2) > 0):
+        xmin = np.array([1., 1., rp, 0., inter])
+    elif (x0[0] - (center[0] + sideLength / 2) < 20 and x0[0] - (center[0] + sideLength / 2) > 0):
+        xmin = np.array([1., 1., rp, 0., inter])
+    else:
+        xmin = np.array([1., 1., rp, 0., -np.inf])
+    xmax = np.array([np.inf, np.inf, np.inf, np.absolute(x0[0]-rx) + np.absolute(x0[1]-ry), np.inf])
     lineq = np.hstack([np.kron(np.ones(Nb+1), xmin), np.kron(np.ones(Nx-Nb),-np.inf*np.ones(ny)), np.kron(np.ones(Nc), umin), np.zeros([ndi,])]) #assume 0 est disturbance at start
     uineq = np.hstack([np.kron(np.ones(Nb+1), xmax), np.kron(np.ones(Nx-Nb), np.inf*np.ones(ny)), np.kron(np.ones(Nc), umax), np.zeros([ndi,])])
-    # lineq[:(Nc)*ny] = lineq[:(Nc)*ny] - np.kron(np.ones([Nc,1]),np.diag(Vecr))@s0
-    # uineq[:(Nc)*ny] = uineq[:(Nc)*ny] + np.kron(np.ones([Nc,1]),np.diag(Vecr))@s0
-    # lineq = np.hstack([np.kron(np.ones(Nb+1), xmin), np.kron(np.ones(Nx-Nb),-np.inf*np.ones(ny)), np.kron(np.ones(Nc), umin)]) 
-    # uineq = np.hstack([np.kron(np.ones(Nb+1), xmax), np.kron(np.ones(Nx-Nb), np.inf*np.ones(ny)), np.kron(np.ones(Nc), umax)])
     # - OSQP constraint
     A = sparse.vstack([Aeq, Aineq], format='csc')
     AextCol = sparse.vstack([np.zeros([nx,ndi]), np.kron(np.ones([Nx,1]),np.vstack([np.eye(ndi),np.zeros([nx-ndi,ndi])])), np.kron(np.zeros([(Nx+1),1]), np.zeros([ny,ndi])), np.kron(np.zeros([(Nc),1]), np.zeros([nu+ny,ndi]))])
@@ -293,7 +302,7 @@ def debrisFullTraj(sim_conditions:SimConditions, mpc_params:MPCParams, debris:De
         if (xestO[0,i+1] - (center[0] + sideLength/2) < 0 and xestO[0,i+1] - (center[0] - sideLength/2) > 0):
             slope = (xestO[1,i+1]-sqVerts[1,1])/(xestO[0,i+1]-sqVerts[1,0])
             inter = -slope*xestO[0,i+1] + xestO[1,i+1]
-        else:
+        elif (hasDebris):
             slope = (xestO[1,i+1]-sqVerts[0,1])/(xestO[0,i+1]-sqVerts[0,0])
             inter = -slope*xestO[0,i+1] + xestO[1,i+1]
         C = np.array([

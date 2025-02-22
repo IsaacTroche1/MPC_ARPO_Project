@@ -1,6 +1,7 @@
-from debrisFullTraj import *
+from trajectorySimulateNoisy import *
 from animateTrajectory import *
 from mpcsim import (SimConditions,MPCParams,Debris,FailsafeParams, SimRun, Noise, figurePlotSave)
+import pickle as pkl
 
 #debris setup
 center = (40.,0.)
@@ -52,8 +53,26 @@ C_refx = np.eye(1,4)
 sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, hatch_offset, mean_motion, sample_time, is_reject, success_cond, noises)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
 debris = Debris(center, side_length)
+debris = None
 fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
-sim_run_test = debrisFullTraj(sim_conditions, mpc_params, debris, fail_params)
-figurePlotSave(sim_conditions, debris, sim_run_test)
 
+
+
+#Actual simulation
+# sim_run_test = trajectorySimulateNoisy(sim_conditions, mpc_params, fail_params, debris)
+# figurePlotSave(sim_conditions, debris, sim_run_test, 1)
+
+i = 0
+direc = 'RunObjs/'
+filename = 'Run'
+while (True):
+    sim_run_test = trajectorySimulateNoisy(sim_conditions, mpc_params, fail_params, debris)
+    print(sim_run_test.isSuccess)
+    if (sim_run_test.isSuccess):
+        figurePlotSave(sim_conditions, debris, sim_run_test, i)
+        outfile = open(direc + filename + str(i) + '.pkl','wb')
+        pkl.dump(sim_run_test, outfile)
+        outfile.close()
+        #animateTrajectory(xTruePiece, ctrls, colorList=colorList, disturbs=disturbs)
+    i = i + 1

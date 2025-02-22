@@ -14,7 +14,7 @@ class Noise:
 
 
 class SimConditions:
-    def __init__(self, x0:np.ndarray[np.float32], xr:np.ndarray[np.float32], r_p:float, los_ang:float, r_tol:float, hatch_ofst:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise):
+    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, hatch_ofst:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise):
         self.x0 = x0
         self.xr = xr
         self.r_p = r_p
@@ -100,7 +100,8 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     ry = sim_conditions.xr[1]
 
     # Debris bounding box
-    sqVerts = debris.constructVertArr()
+    if debris is not None:
+        sqVerts = debris.constructVertArr()
 
     xInt = 0.1
     xSamps = np.arange(0, 110, xInt)
@@ -129,11 +130,14 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     ConsComb, (geoConp, velConp) = plt.subplots(nrows=2, ncols=1)
     ConsComb.set_size_inches((5, 6))
     ConsComb.set_dpi(200)
-    geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#00FF00')
-    geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#00FF00')
-    geoConp.plot(np.array([sqVerts[2, 0], sqVerts[3, 0]]), np.array([sqVerts[2, 1], sqVerts[3, 1]]), color='#00FF00')
-    geoConp.plot(np.array([sqVerts[2, 0], sqVerts[2, 0]]), np.array([sqVerts[2, 1], sqVerts[1, 1]]), color='#00FF00')
-    geoConp.plot(np.array([sqVerts[3, 0], sqVerts[3, 0]]), np.array([sqVerts[3, 1], sqVerts[0, 1]]), color='#00FF00')
+
+    if debris is not None:
+        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#00FF00')
+        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#00FF00')
+        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[3, 0]]), np.array([sqVerts[2, 1], sqVerts[3, 1]]), color='#00FF00')
+        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[2, 0]]), np.array([sqVerts[2, 1], sqVerts[1, 1]]), color='#00FF00')
+        geoConp.plot(np.array([sqVerts[3, 0], sqVerts[3, 0]]), np.array([sqVerts[3, 1], sqVerts[0, 1]]), color='#00FF00')
+
     geoConp.plot(xCirc, topCircle, color='0.5')
     geoConp.plot(xCirc, botCircle, color='0.5')
     geoConp.plot(xSamps, yConeL, color='#00FF00')
