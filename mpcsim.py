@@ -132,17 +132,17 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     ConsComb.set_dpi(300)
 
     if debris is not None:
-        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#00FF00')
-        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#00FF00')
-        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[3, 0]]), np.array([sqVerts[2, 1], sqVerts[3, 1]]), color='#00FF00')
-        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[2, 0]]), np.array([sqVerts[2, 1], sqVerts[1, 1]]), color='#00FF00')
-        geoConp.plot(np.array([sqVerts[3, 0], sqVerts[3, 0]]), np.array([sqVerts[3, 1], sqVerts[0, 1]]), color='#00FF00')
+        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#994F00')
+        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#994F00')
+        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[3, 0]]), np.array([sqVerts[2, 1], sqVerts[3, 1]]), color='#994F00')
+        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[2, 0]]), np.array([sqVerts[2, 1], sqVerts[1, 1]]), color='#994F00')
+        geoConp.plot(np.array([sqVerts[3, 0], sqVerts[3, 0]]), np.array([sqVerts[3, 1], sqVerts[0, 1]]), color='#994F00')
 
     geoConp.plot(xCirc, topCircle, color='0.5')
     geoConp.plot(xCirc, botCircle, color='0.5')
-    geoConp.plot(xSamps, yConeL, color='#00FF00')
-    geoConp.plot(xSamps, yConeU, color='#00FF00')
-    geoConp.plot(xVertSamps, yVertSamps, color='#00FF00')
+    geoConp.plot(xSamps, yConeL, color='#994F00')
+    geoConp.plot(xSamps, yConeU, color='#994F00')
+    geoConp.plot(xVertSamps, yVertSamps, color='#994F00')
     for i in range(iterm - 1):
         geoConp.plot(xtruePiece[0, i:i + 2], xtruePiece[1, i:i + 2], color=numberToColor(controllerSeq[i + 1]))
     customLines = [Line2D([0], [0], color='b'),
@@ -150,14 +150,14 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
                    Line2D([0], [0], color='y')]
     geoConp.set_aspect('equal')
     geoConp.title.set_text('Trajectory and Contraints (LVLH)')
-    geoConp.set_ylabel('$\delta$y (m)')
-    geoConp.set_xlabel('$\delta$x (m)')
+    geoConp.set_ylabel('$\mathregular{\delta}$y (m)')
+    geoConp.set_xlabel('$\mathregular{\delta}$x (m)')
     geoConp.legend(customLines, ['MPC Controller', 'LQR Failsafe', 'LQR Debris Avoidance'], loc='lower right',
                    prop={'size': 5})
     velConp.set_xlabel('Relative Position L1 Norm (m)')
     velConp.set_ylabel('Relative Position L1 Norm (m)')
     velConp.plot(np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry),
-                 np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry), color='#00FF00',
+                 np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry), color='#994F00',
                  label='_nolegend_')
     velConp.plot(np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry),
                  np.reshape(xv1n[:iterm], iterm), color='b', label='Relative Velocity L1 Norm')
@@ -193,7 +193,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     x1p.xaxis.set_visible(False)
     x2p.set_ylabel('$\mathregular{\delta}$y (m)')
     x2p.xaxis.set_visible(False)
-    x3p.set_ylabel('$\mathregular{\delta\dot{y}}$ (m/s)')
+    x3p.set_ylabel('$\mathregular{\delta\dot{x}}$ (m/s)')
     x3p.xaxis.set_visible(False)
     x4p.set_ylabel('$\mathregular{\delta\dot{y}}$ (m/s)')
     x4p.xaxis.set_visible(False)
@@ -213,8 +213,8 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     u2p.plot(uTime, ctrls[1, :iterm])
 
     u1p.title.set_text('Actuator Commands (LVLH)')
-    u1p.set_ylabel('$\mathregular{u_x}$ (m/s^2)')
-    u2p.set_ylabel('$\mathregular{u_y}$ (m/s^2)')
+    u1p.set_ylabel('$\mathregular{u_x}$ $\mathregular{(m/s^2)}$')
+    u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s^2)}$')
     u2p.set_xlabel('Time (s)')
 
     if saveCounter != None:
