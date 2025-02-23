@@ -2,9 +2,16 @@ import math
 from vpython import *
 import numpy as np
 from debrisTestPlotExam import *
+from mpcsim import (SimRun, Debris)
+import pickle
 
 
-def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty(0)):
+def animateTrajectory(sim_run:SimRun,debris:Debris=None):
+
+    xk = sim_run.x_true_pcw
+    ctrls =  sim_run.ctrl_hist
+    controllerSeq = sim_run.ctrlr_seq
+    disturbs = sim_run.noise_hist #use noiseHist for saved runs 50 and 495
 
     def colorNumToObj(num):
         if (num == 1): #MPC
@@ -20,7 +27,7 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
     if (controllerSeq.shape[0] == 0):
         controllerSeq = np.ones(nanim)
 
-    scene = canvas(width = 900, height = 500, align = 'left')
+    scene = canvas(width = 900, height = 650, align = 'left')
 
     plot1 = graph(title='Control Inputs (ECI)', xtitle='Time (s)', ytitle='Control Input (N/kg)', width = 600, height = 300, align = 'right')
     if (disturbs.shape[0] != 0):
@@ -38,7 +45,6 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
     scene.autoscale = False
 
     #Animation constants
-    distScale = 1
     rE = 6371e+03
     h = 500000
     platWidth = 1.5
@@ -47,8 +53,9 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
     Vplat_mag = (rE+h)*n
 
     #Debris
-    center = np.array([40,0])
-    sideLength = 5
+    if (debris is not None):
+        center = debris.center
+        sideLength = debris.side_length
 
 
     #Simulation Constants
@@ -79,11 +86,12 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
     Earth = sphere(pos = vector(0,0,0), radius = (rE), color = color.blue, velocity = vector(0,0,0), make_trail = False)
     Earth.visible = True
     target = cylinder(pos = vector(rE+h, 0, -platWidth/2), axis = vector(0, 0, 1), radius = rp, length = platWidth, color = color.gray(0.5), velocity = vector(0, Vplat_mag, 0), make_trail = True)
-    yConeUpper = cylinder(pos = target.pos, axis = vector(-xSamps[-1],-yConeU[-1],0), radius = 0.5, length = 100, color = color.red, make_trail = False)
-    yConeLower = cylinder(pos = target.pos, axis = vector(-xSamps[-1],-yConeL[-1],0), radius = 0.5, length = 100, color = color.red, make_trail = False)
+    yConeUpper = cylinder(pos = target.pos, axis = vector(-xSamps[-1],-yConeU[-1],0), radius = 0.5, length = 100, color = vector(1,0.647,0.443), make_trail = False)
+    yConeLower = cylinder(pos = target.pos, axis = vector(-xSamps[-1],-yConeL[-1],0), radius = 0.5, length = 100, color = vector(1,0.647,0.443), make_trail = False)
 
-    rDeb_eci = rotate(vector(center[0], center[1], 0), angle = np.pi, axis = vector(0,0,1))
-    debris = box(pos = target.pos + rDeb_eci, axis = vector(0,0,1), size = vector(0.5,sideLength,sideLength), color = color.red, make_trail = False)
+    if (debris is not None):
+        rDeb_eci = rotate(vector(center[0], center[1], 0), angle = np.pi, axis = vector(0,0,1))
+        debris = box(pos = target.pos + rDeb_eci, axis = vector(0,0,1), size = vector(0.5,sideLength,sideLength), color = vector(1,0.647,0.443), make_trail = False)
 
     rChase0_eci = rotate(vector(xk[0,0], xk[1,0], 0), angle = np.pi, axis = vector(0,0,1))
     chaser = sphere(pos = rChase0_eci, radius = 0.5, color = color.purple, make_trail = False, trail_radius = 0.2)
@@ -93,8 +101,6 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
     forceXeci = rotate(forceXc, angle = np.pi, axis = vector(0,0,1))
     forceYeci = rotate(forceYc, angle = np.pi, axis = vector(0,0,1))
     forceTotal_eci = forceXc + forceYeci
-    # inputX = arrow(pos = chaser.pos, axis = inputScale*forceXeci, color = colorNumToObj(controllerSeq[0]), shaftwidth = 0.5)
-    # inputY = arrow(pos = chaser.pos, axis = inputScale*forceYeci, color = colorNumToObj(controllerSeq[0]), shaftwidth = 0.5)
     inputX = arrow(pos = chaser.pos, axis = inputScale*vector(forceTotal_eci.x,0,0), color = colorNumToObj(controllerSeq[0]), shaftwidth = 0.5)
     inputY = arrow(pos = chaser.pos, axis = inputScale*vector(0,forceTotal_eci.y,0), color = colorNumToObj(controllerSeq[0]), shaftwidth = 0.5)
 
@@ -104,10 +110,8 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
         distXeci = rotate(distXc, angle = np.pi, axis = vector(0,0,1))
         distYeci = rotate(distYc, angle = np.pi, axis = vector(0,0,1))
         distTotal_eci = distXeci + distYeci
-        # distX = arrow(pos = target.pos, axis = disturbScale*distXeci, color = color.orange, shaftwidth = 0.5)
-        # distY = arrow(pos = target.pos, axis = disturbScale*distYeci, color = color.orange, shaftwidth = 0.5)
-        distX = arrow(pos = target.pos, axis = disturbScale*vector(distTotal_eci.x,0,0), color = color.orange, shaftwidth = 0.5)
-        distY = arrow(pos = target.pos, axis = disturbScale*vector(0,distTotal_eci.y,0), color = color.orange, shaftwidth = 0.5)
+        distX = arrow(pos = target.pos, axis = disturbScale*vector(distTotal_eci.x,0,0), color = color.green, shaftwidth = 0.5)
+        distY = arrow(pos = target.pos, axis = disturbScale*vector(0,distTotal_eci.y,0), color = color.green, shaftwidth = 0.5)
 
     time = 0
 
@@ -116,12 +120,18 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
     scene.camera.rotate(5, posOrth, target.pos)
     scene.range = 30
     scene.up = vector(0,0,1)
-    #scene.up = vector(1,0,0)
 
     thetaTarg = 0
     thetaPlat = 0
     for i in range(1,nanim):
         rate(5)
+
+        if (controllerSeq[i] == 1):
+            scene.caption = '<b>Using controller: MPC</b>'
+        elif (controllerSeq[i] == 2):
+            scene.caption = '<b>Using controller: LQR Failsafe</b>'
+        elif (controllerSeq[i] == 3):
+            scene.caption = '<b>Using controller: Deadbeat Collision Avoidance</b>'
         
         # uxplot.plot(time, ctrls[0,i])
         # uyplot.plot(time, ctrls[1,i])
@@ -136,7 +146,8 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
         target.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = target.pos)
         yConeUpper.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = target.pos)
         yConeLower.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = target.pos)
-        debris.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = debris.pos)
+        if (debris is not None):
+            debris.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = debris.pos)
 
 
         target.acceleration = acceleration(target, Earth)
@@ -146,11 +157,10 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
         yConeUpper.pos = target.pos
         yConeLower.pos = target.pos
 
-        #rDeb_eci = rotate(vector(center[0], center[1], 0), angle = thetaPlat + np.pi, axis = vector(0,0,1))
         rotMat = np.array([[math.cos(thetaTarg + np.pi), -math.sin(thetaTarg + np.pi)],[math.sin(thetaTarg + np.pi),math.cos(thetaTarg + np.pi)]])
-        rDeb_eci = rotMat@center
-        #print(rDeb_eci)
-        debris.pos = target.pos + vector(rDeb_eci[0], rDeb_eci[1],0)
+        if (debris is not None):
+            rDeb_eci = rotMat@center
+            debris.pos = target.pos + vector(rDeb_eci[0], rDeb_eci[1],0)
 
         rChase_eci = rotate(vector(xk[0,i], xk[1,i], 0), angle = np.pi + thetaTarg, axis = vector(0,0,1))
         chaser.pos = target.pos + rChase_eci
@@ -163,8 +173,6 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
         inputX.pos = chaser.pos
         inputY.pos = chaser.pos
         forceTotal_eci = forceXeci + forceYeci
-        # inputX.axis = inputScale*forceXeci
-        # inputY.axis = inputScale*forceYeci
         inputX.axis = inputScale*vector(forceTotal_eci.x,0,0)
         inputY.axis = inputScale*vector(0,forceTotal_eci.y,0)
         inputX.color = colorNumToObj(controllerSeq[i])
@@ -178,8 +186,6 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
             distX.pos = target.pos
             distY.pos = target.pos
             distTotal_eci = distXeci + distYeci
-            # distX.axis = disturbScale*distXeci
-            # distY.axis = disturbScale*distYeci
             distX.axis = disturbScale*vector(distTotal_eci.x,0,0)
             distY.axis = disturbScale*vector(0,distTotal_eci.y,0)
 
@@ -191,15 +197,13 @@ def animateTrajectory(xk,ctrls, controllerSeq = np.empty(0), disturbs = np.empty
 
         time = time + dt
 
+#Testing area for debugging
+center = (40,0)
+side_length = 5
+debris = Debris(center,side_length)
 
-# #get results for plotting
-# xk, ctrls = debrisNoNoiseOutput()
-# animateTrajectory(xk,ctrls)
+infile = open('saved_runs/Run495.pkl','rb')
+test_run = pickle.load(infile)
+infile.close()
 
-# testTraj = np.load('RunArrays/Run17.npz')
-# xTrue = testTraj['xTruePiece']
-# ctrls = testTraj['ctrls']
-# dists = testTraj['disturbs']
-# conSeq = testTraj['controllerSeq']
-
-# animateTrajectory(xTrue, ctrls, conSeq, dists)
+animateTrajectory(test_run, debris)

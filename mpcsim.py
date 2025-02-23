@@ -35,7 +35,7 @@ class SimRun:
         self.x_est = x_est
         self.ctrl_hist = ctrl_hist
         self.ctrlr_seq = ctrlr_seq
-        self.noiseHist = noise_hist
+        self.noise_hist = noise_hist
 
 class Debris:
     def __init__(self, center:Tuple[float,float], side_length:float):
