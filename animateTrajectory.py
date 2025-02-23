@@ -62,7 +62,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     gam = sim_conditions.los_ang
     rp = sim_conditions.r_p
     rtot = sim_conditions.r_tol
-    phi = np.pi/180
+    phi = sim_conditions.hatch_ofst
     n = sim_conditions.mean_mtn
     T = sim_conditions.time_stp
 
@@ -198,12 +198,12 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
         time = time + dt
 
 #Testing area for debugging
-center = (40,0)
-side_length = 5
-debris = Debris(center,side_length)
-
-infile = open('saved_runs/Run495.pkl','rb')
-test_run = pickle.load(infile)
-infile.close()
-
-animateTrajectory(test_run, debris)
+# center = (40,0)
+# side_length = 5
+# debris = Debris(center,side_length)
+#
+# infile = open('saved_runs/Run495.pkl','rb')
+# test_run = pickle.load(infile)
+# infile.close()
+#
+# animateTrajectory(test_run, debris)

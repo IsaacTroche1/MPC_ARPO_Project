@@ -73,7 +73,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
 
     xtruePiece = sim_run.x_true_pcw
     xestO = sim_run.x_est
-    noiseStored = sim_run.noiseHist
+    noiseStored = sim_run.noise_hist
     ctrls = sim_run.ctrl_hist
     iterm = sim_run.i_term
     controllerSeq = sim_run.ctrlr_seq
