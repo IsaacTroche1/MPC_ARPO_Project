@@ -2,11 +2,11 @@ import math
 from vpython import *
 import numpy as np
 from debrisTestPlotExam import *
-from mpcsim import (SimRun, Debris)
+from mpcsim import (SimConditions, SimRun, Debris)
 import pickle
 
 
-def animateTrajectory(sim_run:SimRun,debris:Debris=None):
+def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debris=None):
 
     xk = sim_run.x_true_pcw
     ctrls =  sim_run.ctrl_hist
@@ -49,7 +49,7 @@ def animateTrajectory(sim_run:SimRun,debris:Debris=None):
     h = 500000
     platWidth = 1.5
     mu = 3.986e+14
-    n = 1.107e-03
+    n = sim_conditions.mean_mtn
     Vplat_mag = (rE+h)*n
 
     #Debris
@@ -59,12 +59,12 @@ def animateTrajectory(sim_run:SimRun,debris:Debris=None):
 
 
     #Simulation Constants
-    gam = 10*(np.pi/180)
-    rp = 2.5
-    rtot = 1.5
+    gam = sim_conditions.los_ang
+    rp = sim_conditions.r_p
+    rtot = sim_conditions.r_tol
     phi = np.pi/180
-    n = 1.107e-3
-    T = 0.5
+    n = sim_conditions.mean_mtn
+    T = sim_conditions.time_stp
 
     #Animated constraints
     xInt = 0.1
@@ -74,7 +74,7 @@ def animateTrajectory(sim_run:SimRun,debris:Debris=None):
     inputScale = 50
     disturbScale = 50
 
-    dt = 0.5
+    dt = sim_conditions.time_stp
 
     def acceleration(targ,earth):
         rrel = targ.pos - earth.pos
