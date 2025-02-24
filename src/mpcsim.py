@@ -14,7 +14,7 @@ class Noise:
 
 
 class SimConditions:
-    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, hatch_ofst:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise):
+    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, hatch_ofst:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None):
         self.x0 = x0
         self.xr = xr
         self.r_p = r_p
@@ -132,19 +132,19 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     ConsComb.set_dpi(300)
 
     if debris is not None:
-        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#994F00')
-        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#994F00')
-        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[3, 0]]), np.array([sqVerts[2, 1], sqVerts[3, 1]]), color='#994F00')
-        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[2, 0]]), np.array([sqVerts[2, 1], sqVerts[1, 1]]), color='#994F00')
-        geoConp.plot(np.array([sqVerts[3, 0], sqVerts[3, 0]]), np.array([sqVerts[3, 1], sqVerts[0, 1]]), color='#994F00')
+        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#994F00', label='_nolegend_')
+        geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#994F00', label='_nolegend_')
+        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[3, 0]]), np.array([sqVerts[2, 1], sqVerts[3, 1]]), color='#994F00', label='_nolegend_')
+        geoConp.plot(np.array([sqVerts[2, 0], sqVerts[2, 0]]), np.array([sqVerts[2, 1], sqVerts[1, 1]]), color='#994F00', label='_nolegend_')
+        geoConp.plot(np.array([sqVerts[3, 0], sqVerts[3, 0]]), np.array([sqVerts[3, 1], sqVerts[0, 1]]), color='#994F00', label='_nolegend_')
 
-    geoConp.plot(xCirc, topCircle, color='0.5')
-    geoConp.plot(xCirc, botCircle, color='0.5')
-    geoConp.plot(xSamps, yConeL, color='#994F00')
-    geoConp.plot(xSamps, yConeU, color='#994F00')
-    geoConp.plot(xVertSamps, yVertSamps, color='#994F00')
+    geoConp.plot(xCirc, topCircle, color='0.5', label='_nolegend_')
+    geoConp.plot(xCirc, botCircle, color='0.5', label='_nolegend_')
+    geoConp.plot(xSamps, yConeL, color='#994F00',label='Constraints')
+    geoConp.plot(xSamps, yConeU, color='#994F00', label='_nolegend_')
+    geoConp.plot(xVertSamps, yVertSamps, color='#994F00', label='_nolegend_')
     for i in range(iterm - 1):
-        geoConp.plot(xtruePiece[0, i:i + 2], xtruePiece[1, i:i + 2], color=numberToColor(controllerSeq[i + 1]))
+        geoConp.plot(xtruePiece[0, i:i + 2], xtruePiece[1, i:i + 2], color=numberToColor(controllerSeq[i + 1]), label='Trajectory')
     customLines = [Line2D([0], [0], color='b'),
                    Line2D([0], [0], color='r'),
                    Line2D([0], [0], color='y')]
@@ -152,8 +152,14 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     geoConp.title.set_text('Trajectory and Contraints (LVLH)')
     geoConp.set_ylabel('$\mathregular{\delta}$y (m)')
     geoConp.set_xlabel('$\mathregular{\delta}$x (m)')
-    geoConp.legend(customLines, ['MPC Controller', 'LQR Failsafe', 'LQR Debris Avoidance'], loc='lower right',
-                   prop={'size': 5})
+
+    if (sim_conditions.noise is not None):
+        geoConp.legend(customLines, ['MPC Controller', 'LQR Failsafe', 'LQR Debris Avoidance'], loc='lower right',
+                       prop={'size': 5})
+    else:
+        geoConp.legend(['Constraints', 'Trajectory'], loc='lower right',
+                       prop={'size': 5})
+
     velConp.set_xlabel('Relative Position L1 Norm (m)')
     velConp.set_ylabel('Relative Position L1 Norm (m)')
     velConp.plot(np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry),
@@ -163,46 +169,75 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
                  np.reshape(xv1n[:iterm], iterm), color='b', label='Relative Velocity L1 Norm')
     velConp.legend(['Relative Velocity L1 Norm (m/s)'], loc='upper left', prop={'size': 5})
 
-    estTrueStates = plt.figure(2)
-    x1p = plt.subplot2grid((6, 3), (0, 0), rowspan=1, colspan=3)
-    x2p = plt.subplot2grid((6, 3), (1, 0), rowspan=1, colspan=3)
-    x3p = plt.subplot2grid((6, 3), (2, 0), rowspan=1, colspan=3)
-    x4p = plt.subplot2grid((6, 3), (3, 0), rowspan=1, colspan=3)
-    d1p = plt.subplot2grid((6, 3), (4, 0), rowspan=1, colspan=3)
-    d2p = plt.subplot2grid((6, 3), (5, 0), rowspan=1, colspan=3)
+    if sim_conditions.noise is None:
+        estTrueStates = plt.figure(2)
+        x1p = plt.subplot2grid((4, 3), (0, 0), rowspan=1, colspan=3)
+        x2p = plt.subplot2grid((4, 3), (1, 0), rowspan=1, colspan=3)
+        x3p = plt.subplot2grid((4, 3), (2, 0), rowspan=1, colspan=3)
+        x4p = plt.subplot2grid((4, 3), (3, 0), rowspan=1, colspan=3)
 
-    x1p.plot(xTime, xtruePiece[0, :iterm + 1])
-    x1p.plot(xTime, xestO[0, :iterm])
-    x2p.plot(xTime, xtruePiece[1, :iterm + 1])
-    x2p.plot(xTime, xestO[1, :iterm])
-    x3p.plot(xTime, xtruePiece[2, :iterm + 1])
-    x3p.plot(xTime, xestO[2, :iterm])
-    x4p.plot(xTime, xtruePiece[3, :iterm + 1])
-    x4p.plot(xTime, xestO[3, :iterm])
-    d1p.plot(xTime, noiseStored[0, :iterm])
-    d1p.plot(xTime, xestO[4, :iterm])
-    d2p.plot(xTime, noiseStored[1, :iterm])
-    d2p.plot(xTime, xestO[5, :iterm])
+        x1p.plot(xTime, xestO[0, :iterm])
+        x2p.plot(xTime, xestO[1, :iterm])
+        x3p.plot(xTime, xestO[2, :iterm])
+        x4p.plot(xTime, xestO[3, :iterm])
 
-    estTrueStates.set_size_inches((7, 7.5))
-    estTrueStates.set_dpi(300)
+        estTrueStates.set_size_inches((7, 7.5))
+        estTrueStates.set_dpi(300)
 
-    x1p.title.set_text('True and Estimated States (LVLH)')
-    x1p.set_ylabel('$\mathregular{\delta}$x (m)')
-    x1p.legend(['True','Estimated'], loc='upper right')
-    x1p.xaxis.set_visible(False)
-    x2p.set_ylabel('$\mathregular{\delta}$y (m)')
-    x2p.xaxis.set_visible(False)
-    x3p.set_ylabel('$\mathregular{\delta\dot{x}}$ (m/s)')
-    x3p.xaxis.set_visible(False)
-    x4p.set_ylabel('$\mathregular{\delta\dot{y}}$ (m/s)')
-    x4p.xaxis.set_visible(False)
-    d1p.set_ylabel('$\mathregular{d_x}$ (m)')
-    d1p.xaxis.set_visible(False)
-    d2p.set_ylabel('$\mathregular{d_y}$ (m)')
-    d2p.set_xlabel('Time (s)')
+        x1p.title.set_text('True and Estimated States (LVLH)')
+        x1p.set_ylabel('$\mathregular{\delta}$x (m)')
+        x1p.xaxis.set_visible(False)
+        x2p.set_ylabel('$\mathregular{\delta}$y (m)')
+        x2p.xaxis.set_visible(False)
+        x3p.set_ylabel('$\mathregular{\delta\dot{x}}$ (m/s)')
+        x3p.xaxis.set_visible(False)
+        x4p.set_ylabel('$\mathregular{\delta\dot{y}}$ (m/s)')
+        x4p.set_xlabel('Time (s)')
 
-    estTrueStates.align_labels()
+        estTrueStates.align_labels()
+
+    else:
+
+        estTrueStates = plt.figure(2)
+        x1p = plt.subplot2grid((6, 3), (0, 0), rowspan=1, colspan=3)
+        x2p = plt.subplot2grid((6, 3), (1, 0), rowspan=1, colspan=3)
+        x3p = plt.subplot2grid((6, 3), (2, 0), rowspan=1, colspan=3)
+        x4p = plt.subplot2grid((6, 3), (3, 0), rowspan=1, colspan=3)
+        d1p = plt.subplot2grid((6, 3), (4, 0), rowspan=1, colspan=3)
+        d2p = plt.subplot2grid((6, 3), (5, 0), rowspan=1, colspan=3)
+
+        x1p.plot(xTime, xtruePiece[0, :iterm + 1])
+        x1p.plot(xTime, xestO[0, :iterm])
+        x2p.plot(xTime, xtruePiece[1, :iterm + 1])
+        x2p.plot(xTime, xestO[1, :iterm])
+        x3p.plot(xTime, xtruePiece[2, :iterm + 1])
+        x3p.plot(xTime, xestO[2, :iterm])
+        x4p.plot(xTime, xtruePiece[3, :iterm + 1])
+        x4p.plot(xTime, xestO[3, :iterm])
+        d1p.plot(xTime, noiseStored[0, :iterm])
+        d1p.plot(xTime, xestO[4, :iterm])
+        d2p.plot(xTime, noiseStored[1, :iterm])
+        d2p.plot(xTime, xestO[5, :iterm])
+
+        estTrueStates.set_size_inches((7, 7.5))
+        estTrueStates.set_dpi(300)
+
+        x1p.title.set_text('True and Estimated States (LVLH)')
+        x1p.set_ylabel('$\mathregular{\delta}$x (m)')
+        x1p.legend(['True','Estimated'], loc='upper right')
+        x1p.xaxis.set_visible(False)
+        x2p.set_ylabel('$\mathregular{\delta}$y (m)')
+        x2p.xaxis.set_visible(False)
+        x3p.set_ylabel('$\mathregular{\delta\dot{x}}$ (m/s)')
+        x3p.xaxis.set_visible(False)
+        x4p.set_ylabel('$\mathregular{\delta\dot{y}}$ (m/s)')
+        x4p.xaxis.set_visible(False)
+        d1p.set_ylabel('$\mathregular{d_x}$ (m)')
+        d1p.xaxis.set_visible(False)
+        d2p.set_ylabel('$\mathregular{d_y}$ (m)')
+        d2p.set_xlabel('Time (s)')
+
+        estTrueStates.align_labels()
 
     controlPlot = plt.figure(3)
     u1p = plt.subplot2grid((2, 3), (0, 0), rowspan=1, colspan=3)
