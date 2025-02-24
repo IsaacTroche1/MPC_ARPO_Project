@@ -35,10 +35,12 @@ def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCPara
         center = debris.center
         sideLength = debris.side_length
         hasDebris = True
+        detect_dist = debris.detect_distance
     else:
         center = (-np.inf, -np.inf)
         sideLength = 0
         hasDebris = False
+        detect_dist = np.inf
 
     C1 = (-1, 1)[xest[2] >= 0]
     C2 = (-1, 1)[xest[3] >= 0]
@@ -60,7 +62,7 @@ def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCPara
     A = sparse.vstack([A, AextRow])
     if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
         xmin = np.array([1., 1., rp, 0., inter])
-    elif (xest[0] - (center[0] + sideLength / 2) < 20 and xest[0] - (center[0] + sideLength / 2) > 0):
+    elif (xest[0] - (center[0] + sideLength / 2) < detect_dist and xest[0] - (center[0] + sideLength / 2) > 0):
         xmin = np.array([1., 1., rp, 0., inter])
     else:
         xmin = np.array([1., 1., rp, 0., -np.inf])
