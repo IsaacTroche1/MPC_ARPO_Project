@@ -11,7 +11,7 @@ from src.simhelpers import *
 
 
 
-def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
+def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
     # random.seed(123)
 

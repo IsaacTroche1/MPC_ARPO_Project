@@ -1,5 +1,5 @@
 from src.mpcsim import *
-from src.trajectorySimulateNoisy import trajectorySimulateNoisy
+from src.trajectorySimulate import trajectorySimulate
 from src.animateTrajectory import animateTrajectory
 from scipy import sparse
 import pickle as pkl
@@ -32,7 +32,7 @@ xr = np.array([rx,ry,0.,0.])
 is_reject = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
-noises = None
+#noises = None
 
 #MPC controller setup
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900])
@@ -62,7 +62,7 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
 #Actual simulation
-sim_run_test = trajectorySimulateNoisy(sim_conditions, mpc_params, fail_params, debris)
+sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
 figurePlotSave(sim_conditions, debris, sim_run_test, 0)
 outfile = open('RunObjs/test_run0.pkl','wb')
 pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
@@ -80,7 +80,7 @@ animateTrajectory(obj1, obj2, debris)
 # direc = 'RunObjs/'
 # filename = 'Run'
 # while (True):
-#     sim_run_test = trajectorySimulateNoisy(sim_conditions, mpc_params, fail_params, debris)
+#     sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
 #     print(sim_run_test.isSuccess)
 #     if (sim_run_test.isSuccess):
 #         figurePlotSave(sim_conditions, debris, sim_run_test, i)
