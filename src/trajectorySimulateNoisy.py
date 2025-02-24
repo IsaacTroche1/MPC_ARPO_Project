@@ -13,14 +13,21 @@ from src.simhelpers import *
 
 def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
+    # random.seed(123)
+
     isReject = sim_conditions.isReject
-    noiseRepeat = sim_conditions.noise.noise_length
     distTol = sim_conditions.suc_cond[0]
     angTol = sim_conditions.suc_cond[1]
+    noise = sim_conditions.noise
 
     #Noise characteristics
-    sigMat = sim_conditions.noise.constructSigMat()
-    #random.seed(123)
+    if noise is not None:
+        sigMat = sim_conditions.noise.constructSigMat()
+        noiseRepeat = sim_conditions.noise.noise_length
+    else:
+        sigMat = np.diag([0.,0.,0.,0.])
+        noiseRepeat = 1
+
 
     #Simulation Constants
     gam = sim_conditions.los_ang
@@ -275,12 +282,15 @@ def trajectorySimulateNoisy(sim_conditions:SimConditions, mpc_params:MPCParams, 
 
 
         #Measurement and state estimate
-        xnom = Ao@xestO[:,i] + Bou@ctrl
-        Pest = Ao@Pest@np.transpose(Ao) + Qw
-        L = Pest@np.transpose(Co)@sp.linalg.inv(Co@Pest@np.transpose(Co))
-        ymeas = Cm@xtrueP[:,i]
-        xestO[:,i+1] = xnom + L@(ymeas - Co@xnom)
-        Pest = (np.eye(nx+ndi) - L@Co)@Pest
+        if (noise is not None):
+            xnom = Ao@xestO[:,i] + Bou@ctrl
+            Pest = Ao@Pest@np.transpose(Ao) + Qw
+            L = Pest@np.transpose(Co)@sp.linalg.inv(Co@Pest@np.transpose(Co))
+            ymeas = Cm@xtrueP[:,i]
+            xestO[:,i+1] = xnom + L@(ymeas - Co@xnom)
+            Pest = (np.eye(nx+ndi) - L@Co)@Pest
+        else:
+            xestO[:,i+1] = np.hstack([xtrueP[:,i+1], [0.,0.]])
 
         # Update initial state
         #also need to change to estimated state
