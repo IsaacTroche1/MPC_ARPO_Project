@@ -35,21 +35,38 @@ def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCPara
         center = debris.center
         sideLength = debris.side_length
         hasDebris = True
+        detect_dist = debris.detect_distance
     else:
         center = (-np.inf, -np.inf)
         sideLength = 0
         hasDebris = False
+        detect_dist = np.inf
 
     C1 = (-1, 1)[xest[2] >= 0]
     C2 = (-1, 1)[xest[3] >= 0]
-    if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
-        slope = (xest[1] - sqVerts[1, 1]) / (xest[0] - sqVerts[1, 0])
-        inter = -slope * xest[0] + xest[1]
-    elif (hasDebris):
-        slope = (xest[1] - sqVerts[0, 1]) / (xest[0] - sqVerts[0, 0])
-        inter = -slope * xest[0] + xest[1]
-    else:
-        slope = 0
+
+    if (xest[1] >= 0): #Switch less than, equals signs in if statement to see under behavior at centerline
+
+        if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
+            slope = (xest[1] - sqVerts[1, 1]) / (xest[0] - sqVerts[1, 0])
+            inter = -slope * xest[0] + xest[1]
+        elif (hasDebris):
+            slope = (xest[1] - sqVerts[0, 1]) / (xest[0] - sqVerts[0, 0])
+            inter = -slope * xest[0] + xest[1]
+        else:
+            slope = 0
+
+    elif (xest[1] < 0):
+
+        if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
+            slope = (xest[1] - sqVerts[2, 1]) / (xest[0] - sqVerts[2, 0])
+            inter = -slope * xest[0] + xest[1]
+        elif (hasDebris):
+            slope = (xest[1] - sqVerts[3, 1]) / (xest[0] - sqVerts[3, 0])
+            inter = -slope * xest[0] + xest[1]
+        else:
+            slope = 0
+
     C[3,2] = C1
     C[3,3] = C2
     C[4,0] = -slope
@@ -58,19 +75,29 @@ def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCPara
     A = sparse.vstack([Aeq, Aineq], format='csc')
     A = sparse.hstack([A, AextCol])
     A = sparse.vstack([A, AextRow])
-    if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
-        xmin = np.array([1., 1., rp, 0., inter])
-    elif (xest[0] - (center[0] + sideLength / 2) < 20 and xest[0] - (center[0] + sideLength / 2) > 0):
-        xmin = np.array([1., 1., rp, 0., inter])
-    else:
+
+    if (xest[1] >= 0):  # Switch less than, equals signs in if statement to see under behavior at centerline
+
+        if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
+            xmin = np.array([1., 1., rp, 0., inter])
+        elif (xest[0] - (center[0] + sideLength / 2) < detect_dist and xest[0] - (center[0] + sideLength / 2) > 0):
+            xmin = np.array([1., 1., rp, 0., inter])
+        else:
+            xmin = np.array([1., 1., rp, 0., -np.inf])
+        xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), np.inf])
+
+    elif (xest[1] < 0):
+
+        if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
+            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), inter])
+        elif (xest[0] - (center[0] + sideLength / 2) < detect_dist and xest[0] - (center[0] + sideLength / 2) > 0):
+            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), inter])
+        else:
+            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), np.inf])
         xmin = np.array([1., 1., rp, 0., -np.inf])
-    xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), np.inf])
-    lineq = np.hstack(
-        [np.kron(np.ones(Nb + 1), xmin), np.kron(np.ones(Nx - Nb), -np.inf * np.ones(ny)), np.kron(np.ones(Nc), umin),
-         isReject * xest[4:6]])  # assume 0 est disturbance at start
-    uineq = np.hstack(
-        [np.kron(np.ones(Nb + 1), xmax), np.kron(np.ones(Nx - Nb), np.inf * np.ones(ny)), np.kron(np.ones(Nc), umax),
-         isReject * xest[4:6]])
+
+    lineq = np.hstack([np.kron(np.ones(Nb + 1), xmin), np.kron(np.ones(Nx - Nb), -np.inf * np.ones(ny)), np.kron(np.ones(Nc), umin), isReject * xest[4:6]])  # assume 0 est disturbance at start
+    uineq = np.hstack([np.kron(np.ones(Nb + 1), xmax), np.kron(np.ones(Nx - Nb), np.inf * np.ones(ny)), np.kron(np.ones(Nc), umax), isReject * xest[4:6]])
 
     return A, lineq, uineq
 
