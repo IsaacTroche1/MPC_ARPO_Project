@@ -38,9 +38,10 @@ class SimRun:
         self.noise_hist = noise_hist
 
 class Debris:
-    def __init__(self, center:Tuple[float,float], side_length:float):
+    def __init__(self, center:Tuple[float,float], side_length:float, detect_distance:float):
         self.center = center
         self.side_length = side_length
+        self.detect_distance = detect_distance
     def constructVertArr(self):
         sqVerts = np.array([[self.center[0] + self.side_length / 2, self.center[1] + self.side_length / 2],
                             [self.center[0] - self.side_length / 2, self.center[1] + self.side_length / 2],

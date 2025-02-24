@@ -7,6 +7,7 @@ import pickle as pkl
 #debris setup
 center = (40.,0.)
 side_length = 5.
+detect_dist = 20
 
 #noise setup
 sig_x = 0.3
@@ -32,7 +33,7 @@ xr = np.array([rx,ry,0.,0.])
 is_reject = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
-#noises = None
+noises = None
 
 #MPC controller setup
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900])
@@ -54,7 +55,7 @@ C_refx = np.eye(1,4)
 #populate conditions
 sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, hatch_offset, mean_motion, sample_time, is_reject, success_cond, noises)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
-debris = Debris(center, side_length)
+debris = Debris(center, side_length, detect_dist)
 #debris = None
 fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
