@@ -1,7 +1,7 @@
 from scipy import sparse
 import numpy as np
 
-from mpcsim import (Debris, SimConditions, MPCParams)
+from src.mpcsim import *
 
 def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCParams, debris:Debris, xest, block_mats, u_lim):
 

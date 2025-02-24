@@ -6,8 +6,8 @@ import math
 from scipy import sparse
 from numpy import random
 import control as ct
-from mpcsim import (SimConditions,MPCParams,Debris,FailsafeParams, SimRun)
-from simhelpers import (configureDynamicConstraints,constructOsqpAeq)
+from src.mpcsim import *
+from src.simhelpers import *
 
 
 

@@ -1,8 +1,7 @@
 import math
 from vpython import *
 import numpy as np
-from debrisTestPlotExam import *
-from mpcsim import (SimConditions, SimRun, Debris)
+from src.mpcsim import *
 import pickle
 
 

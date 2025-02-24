@@ -1,6 +1,7 @@
-from trajectorySimulateNoisy import *
-from animateTrajectory import *
-from mpcsim import (SimConditions,MPCParams,Debris,FailsafeParams, SimRun, Noise, figurePlotSave)
+from src.mpcsim import *
+from src.trajectorySimulateNoisy import trajectorySimulateNoisy
+from src.animateTrajectory import animateTrajectory
+from scipy import sparse
 import pickle as pkl
 
 #debris setup
@@ -67,7 +68,7 @@ pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
 outfile.close()
 
 infile = open('RunObjs/test_run0.pkl','rb')
-objs = pickle.load(infile)
+objs = pkl.load(infile)
 obj1 = objs['simcond']
 obj2 = objs['simrun']
 infile.close()
