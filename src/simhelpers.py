@@ -1,9 +1,40 @@
 from scipy import sparse
 import numpy as np
+import matplotlib
+#import pyqt5
+import matplotlib.pyplot as plt
+#matplotlib.use('Qt5Agg')
 
 from src.mpcsim import *
 
 def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCParams, debris:Debris, xest, block_mats, u_lim):
+
+    def debugPlotConstraint(sqVerts,xest,inTrack,slope,intercept):
+
+        def pltline(slope,intercept):
+            axes = plt.gca()
+            x_vals = np.array(axes.get_xlim())
+            y_vals = intercept + slope*x_vals
+            plt.plot(x_vals,y_vals,'--')
+
+        plt.plot(0,0,'bx')
+        if (inTrack):
+            plt.plot(xest[1],xest[0],'ro')
+        else:
+            plt.plot(xest[0], xest[1], 'ro')
+        plt.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]),
+                     color='#994F00', label='_nolegend_')
+        plt.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]),
+                     color='#994F00', label='_nolegend_')
+        plt.plot(np.array([sqVerts[2, 0], sqVerts[3, 0]]), np.array([sqVerts[2, 1], sqVerts[3, 1]]),
+                     color='#994F00', label='_nolegend_')
+        plt.plot(np.array([sqVerts[2, 0], sqVerts[2, 0]]), np.array([sqVerts[2, 1], sqVerts[1, 1]]),
+                     color='#994F00', label='_nolegend_')
+        plt.plot(np.array([sqVerts[3, 0], sqVerts[3, 0]]), np.array([sqVerts[3, 1], sqVerts[0, 1]]),
+                     color='#994F00', label='_nolegend_')
+        pltline(slope,intercept)
+        plt.gca().set_aspect('equal')
+        plt.show()
 
     rp = sim_conditions.r_p
     x0 = sim_conditions.x0
@@ -27,10 +58,13 @@ def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCPara
     umin = u_lim[0]
     umax = u_lim[1]
 
-    if debris is not None:
+    if (debris is not None):
         # Debris bounding box
         sqVerts = debris.constructVertArr()
-
+        if (sim_conditions.inTrack):
+            #Turn debris bounding box on side
+            sqVertsO = np.copy(sqVerts)
+            sqVerts[0,:], sqVerts[1,:], sqVerts[2,:], sqVerts[3,:] = np.copy(sqVerts[1,:]), np.copy(sqVerts[2,:]), np.copy(sqVerts[3,:]), np.copy(sqVerts[0,:])
         # delete these eventually
         center = debris.center
         sideLength = debris.side_length
@@ -45,25 +79,36 @@ def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCPara
     C1 = (-1, 1)[xest[2] >= 0]
     C2 = (-1, 1)[xest[3] >= 0]
 
+    if (sim_conditions.inTrack):
+        xestCalc = np.copy(xest)
+        xest[0], xest[1] = xest[1], xest[0]
+        temp = center
+        center = list(center)
+        center[0], center[1] = temp[1], temp[0]
+    else:
+        xestCalc = xest
     if (xest[1] >= 0): #Switch less than, equals signs in if statement to see under behavior at centerline
 
         if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
-            slope = (xest[1] - sqVerts[1, 1]) / (xest[0] - sqVerts[1, 0])
-            inter = -slope * xest[0] + xest[1]
+            slope = (xestCalc[1] - sqVerts[1, 1]) / (xestCalc[0] - sqVerts[1, 0])
+            inter = -slope * xestCalc[0] + xestCalc[1]
         elif (hasDebris):
-            slope = (xest[1] - sqVerts[0, 1]) / (xest[0] - sqVerts[0, 0])
-            inter = -slope * xest[0] + xest[1]
+            slope = (xestCalc[1] - sqVerts[0, 1]) / (xestCalc[0] - sqVerts[0, 0])
+            inter = -slope * xestCalc[0] + xestCalc[1]
         else:
+
             slope = 0
 
     elif (xest[1] < 0):
 
         if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
-            slope = (xest[1] - sqVerts[2, 1]) / (xest[0] - sqVerts[2, 0])
-            inter = -slope * xest[0] + xest[1]
+            slope = (xestCalc[1] - sqVerts[2, 1]) / (xestCalc[0] - sqVerts[2, 0])
+            inter = -slope * xestCalc[0] + xestCalc[1]
+
         elif (hasDebris):
-            slope = (xest[1] - sqVerts[3, 1]) / (xest[0] - sqVerts[3, 0])
-            inter = -slope * xest[0] + xest[1]
+            slope = (xestCalc[1] - sqVerts[3, 1]) / (xestCalc[0] - sqVerts[3, 0])
+            inter = -slope * xestCalc[0] + xestCalc[1]
+
         else:
             slope = 0
 
@@ -84,16 +129,16 @@ def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCPara
             xmin = np.array([1., 1., rp, 0., inter])
         else:
             xmin = np.array([1., 1., rp, 0., -np.inf])
-        xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), np.inf])
+        xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xestCalc[0] - rx) + np.absolute(xestCalc[1] - ry), np.inf])
 
     elif (xest[1] < 0):
 
         if (xest[0] - (center[0] + sideLength / 2) < 0 and xest[0] - (center[0] - sideLength / 2) > 0):
-            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), inter])
+            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xestCalc[0] - rx) + np.absolute(xestCalc[1] - ry), inter])
         elif (xest[0] - (center[0] + sideLength / 2) < detect_dist and xest[0] - (center[0] + sideLength / 2) > 0):
-            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), inter])
+            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xestCalc[0] - rx) + np.absolute(xestCalc[1] - ry), inter])
         else:
-            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xest[0] - rx) + np.absolute(xest[1] - ry), np.inf])
+            xmax = np.array([np.inf, np.inf, np.inf, np.absolute(xestCalc[0] - rx) + np.absolute(xestCalc[1] - ry), np.inf])
         xmin = np.array([1., 1., rp, 0., -np.inf])
 
     lineq = np.hstack([np.kron(np.ones(Nb + 1), xmin), np.kron(np.ones(Nx - Nb), -np.inf * np.ones(ny)), np.kron(np.ones(Nc), umin), isReject * xest[4:6]])  # assume 0 est disturbance at start

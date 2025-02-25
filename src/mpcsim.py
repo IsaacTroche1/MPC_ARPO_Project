@@ -2,7 +2,9 @@ from typing import (Tuple, Any)
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from scipy import sparse
 import math
+
 
 class Noise:
     def __init__(self, noise_std:Tuple[float,float], noise_length:float):
@@ -14,18 +16,19 @@ class Noise:
 
 
 class SimConditions:
-    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, hatch_ofst:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None):
+    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False):
         self.x0 = x0
         self.xr = xr
         self.r_p = r_p
         self.los_ang = los_ang
         self.r_tol = r_tol
-        self.hatch_ofst = hatch_ofst
+        self.hatch_ofst = (inTrack*90)*(np.pi/180)
         self.mean_mtn = mean_mtn
         self.time_stp = time_stp
         self.isReject = isReject
         self.suc_cond = suc_cond
         self.noise = noise
+        self.inTrack = inTrack
 
 class SimRun:
     def __init__(self, i_term:int, isSuccess:bool, x_true_pcw, x_est, ctrl_hist, ctrlr_seq, noise_hist):
@@ -52,9 +55,16 @@ class Debris:
 
 
 class MPCParams:
-    def __init__(self, Q_state, R_input, R_slack, V_ecr, horizons):
+    def __init__(self, Q_state, R_input, R_slack, V_ecr, horizons, swap_xy:bool=False):
         self.Q_state = Q_state
         self.R_input = R_input
+        if (swap_xy):
+            self.Q_state = Q_state.toarray()
+            self.R_input = R_input.toarray()
+            self.Q_state[0,0], self.Q_state[1,1], self.Q_state[2,2], self.Q_state[3,3], = self.Q_state[1,1], self.Q_state[0,0], self.Q_state[3,3], self.Q_state[2,2]
+            self.R_input[0,0], self.R_input[1,1] = self.R_input[1,1], self.R_input[0,0]
+            self.Q_state = sparse.dia_array(self.Q_state)
+            self.R_input = sparse.dia_array(self.R_input)
         self.R_slack = R_slack
         self.V_ecr = V_ecr
         self.Nx = horizons["Nx"]
@@ -78,6 +88,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     ctrls = sim_run.ctrl_hist
     iterm = sim_run.i_term
     controllerSeq = sim_run.ctrlr_seq
+    in_track = False
 
 
     def numberToColor(num):
@@ -105,7 +116,13 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         sqVerts = debris.constructVertArr()
 
     xInt = 0.1
-    xSamps = np.arange(0, 110, xInt)
+    if (sim_conditions.inTrack):
+        xSampsU = np.arange(-20, 0+xInt, xInt)
+        xSampsL = np.arange(0, 20+xInt, xInt)
+    else:
+        xSampsU = np.arange(0, 110, xInt)
+        xSampsL = xSampsU
+
     xTime = [T * x for x in range(iterm)]
 
     # contruct velocity one norms
@@ -116,9 +133,8 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     # Plotting Constraints and Obstacles
     yVertSamps = np.arange(-10, 10 + xInt, xInt)
     xVertSamps = np.ones(yVertSamps.shape)
-    yConeL = ((rp - rtot) * math.sin(gam) / (math.cos(phi - gam))) + math.tan(phi - gam) * xSamps
-    yConeU = -((rp - rtot) * math.sin(gam) / (math.cos(phi + gam))) + math.tan(phi + gam) * xSamps
-    vertCons = rp * math.sin(gam)
+    yConeL = ((rp - rtot) * math.sin(gam) / (math.cos(phi - gam))) + math.tan(phi - gam) * xSampsL
+    yConeU = -((rp - rtot) * math.sin(gam) / (math.cos(phi + gam))) + math.tan(phi + gam) * xSampsU
     vertCons = rp
     xVertSamps = xVertSamps * vertCons
     xCirc = np.arange(-rp, rp + xInt, xInt)
@@ -127,10 +143,14 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     botCircle = -np.sqrt(rp ** 2 - np.round(xCircSq, 2))
 
 
-
-    ConsComb, (geoConp, velConp) = plt.subplots(nrows=2, ncols=1)
-    ConsComb.set_size_inches((5,5.5))
-    ConsComb.set_dpi(300)
+    if (sim_conditions.inTrack):
+        ConsComb, (geoConp, velConp) = plt.subplots(nrows=1, ncols=2)
+        ConsComb.set_size_inches((7, 5))
+        ConsComb.set_dpi(300)
+    else:
+        ConsComb, (geoConp, velConp) = plt.subplots(nrows=2, ncols=1)
+        ConsComb.set_size_inches((5,5.5))
+        ConsComb.set_dpi(300)
 
     if debris is not None:
         geoConp.plot(np.array([sqVerts[1, 0], sqVerts[0, 0]]), np.array([sqVerts[1, 1], sqVerts[0, 1]]), color='#994F00', label='_nolegend_')
@@ -141,25 +161,32 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
 
     geoConp.plot(xCirc, topCircle, color='0.5', label='_nolegend_')
     geoConp.plot(xCirc, botCircle, color='0.5', label='_nolegend_')
-    geoConp.plot(xSamps, yConeL, color='#994F00',label='Constraints')
-    geoConp.plot(xSamps, yConeU, color='#994F00', label='_nolegend_')
-    geoConp.plot(xVertSamps, yVertSamps, color='#994F00', label='_nolegend_')
+    geoConp.plot(xSampsL, yConeL, color='#994F00',label='Constraints')
+    geoConp.plot(xSampsU, yConeU, color='#994F00', label='_nolegend_')
+    if (sim_conditions.inTrack):
+        geoConp.plot(yVertSamps, xVertSamps, color='#994F00', label='_nolegend_')
+    else:
+        geoConp.plot(xVertSamps, yVertSamps, color='#994F00', label='_nolegend_')
     for i in range(iterm - 1):
         geoConp.plot(xtruePiece[0, i:i + 2], xtruePiece[1, i:i + 2], color=numberToColor(controllerSeq[i + 1]), label='Trajectory')
     customLines = [Line2D([0], [0], color='b'),
                    Line2D([0], [0], color='r'),
                    Line2D([0], [0], color='y')]
     geoConp.set_aspect('equal')
-    geoConp.title.set_text('Trajectory and Contraints (LVLH)')
+    if (sim_conditions.inTrack):
+        ConsComb.suptitle('Trajectory and Contraints (LVLH)')
+    else:
+        geoConp.title.set_text('Trajectory and Contraints (LVLH)')
     geoConp.set_ylabel('$\mathregular{\delta}$y (m)')
     geoConp.set_xlabel('$\mathregular{\delta}$x (m)')
 
     if (sim_conditions.noise is not None):
-        geoConp.legend(customLines, ['MPC Controller', 'LQR Failsafe', 'LQR Debris Avoidance'], loc='lower right',
-                       prop={'size': 5})
+        geoConp.legend(customLines, ['MPC Controller', 'LQR Failsafe', 'LQR Debris Avoidance'], loc='lower right', prop={'size': 5})
     else:
-        geoConp.legend(['Constraints', 'Trajectory'], loc='lower right',
-                       prop={'size': 5})
+        if (not sim_conditions.inTrack):
+            geoConp.legend(['Constraints', 'Trajectory'], loc='lower right', prop={'size': 5})
+        else:
+            geoConp.legend(['Constraints', 'Trajectory'], loc='upper right', prop={'size': 5})
 
     velConp.set_xlabel('Relative Position L1 Norm (m)')
     velConp.set_ylabel('Relative Position L1 Norm (m)')
