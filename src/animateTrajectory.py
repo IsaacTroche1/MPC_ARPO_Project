@@ -67,9 +67,16 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
 
     #Animated constraints
     xInt = 0.1
-    xSamps = np.arange(0,110,xInt)
-    yConeL = ((rp-rtot)*math.sin(gam)/(math.cos(phi-gam))) + math.tan(phi-gam)*xSamps
-    yConeU = -((rp-rtot)*math.sin(gam)/(math.cos(phi+gam))) + math.tan(phi+gam)*xSamps
+    if (sim_conditions.inTrack):
+        xSampsU = np.arange(-20, 0 + xInt, xInt)
+        xSampsL = np.arange(0, 20 + xInt, xInt)
+        first = 0
+    else:
+        xSampsU = np.arange(0, 110, xInt)
+        xSampsL = xSampsU
+        first = -1
+    yConeL = ((rp-rtot)*math.sin(gam)/(math.cos(phi-gam))) + math.tan(phi-gam)*xSampsL
+    yConeU = -((rp-rtot)*math.sin(gam)/(math.cos(phi+gam))) + math.tan(phi+gam)*xSampsU
     inputScale = 50
     disturbScale = 50
 
@@ -85,8 +92,8 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     Earth = sphere(pos = vector(0,0,0), radius = (rE), color = color.blue, velocity = vector(0,0,0), make_trail = False)
     Earth.visible = True
     target = cylinder(pos = vector(rE+h, 0, -platWidth/2), axis = vector(0, 0, 1), radius = rp, length = platWidth, color = color.gray(0.5), velocity = vector(0, Vplat_mag, 0), make_trail = True)
-    yConeUpper = cylinder(pos = target.pos, axis = vector(-xSamps[-1],-yConeU[-1],0), radius = 0.5, length = 100, color = vector(1,0.647,0.443), make_trail = False)
-    yConeLower = cylinder(pos = target.pos, axis = vector(-xSamps[-1],-yConeL[-1],0), radius = 0.5, length = 100, color = vector(1,0.647,0.443), make_trail = False)
+    yConeUpper = cylinder(pos = target.pos, axis = vector(-xSampsU[first],-yConeU[first],0), radius = 0.5, length = 100, color = vector(1,0.647,0.443), make_trail = False)
+    yConeLower = cylinder(pos = target.pos, axis = vector(-xSampsL[-1],-yConeL[-1],0), radius = 0.5, length = 100, color = vector(1,0.647,0.443), make_trail = False)
 
     if (debris is not None):
         rDeb_eci = rotate(vector(center[0], center[1], 0), angle = np.pi, axis = vector(0,0,1))
@@ -117,6 +124,8 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     posOrth = vector(-target.pos.y, target.pos.x, 0)
     scene.camera.follow(chaser)
     scene.camera.rotate(5, posOrth, target.pos)
+    if (sim_conditions.inTrack):
+        scene.camera.rotate(90*(np.pi/180), vector(0,0,1), target.pos)
     scene.range = 30
     scene.up = vector(0,0,1)
 

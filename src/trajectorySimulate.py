@@ -16,6 +16,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     # random.seed(123)
 
     isReject = sim_conditions.isReject
+    inTrack = sim_conditions.inTrack
     distTol = sim_conditions.suc_cond[0]
     angTol = sim_conditions.suc_cond[1]
     noise = sim_conditions.noise
@@ -121,6 +122,10 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
             [0., 0., 1., 1.],
             [-slope, 1., 0., 0.],
                 ])
+
+    if (inTrack):
+        C[2,:] = np.array([0.,1.,0.,0.])
+
     ny = C.shape[0]
 
 
@@ -244,7 +249,10 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     for i in range(nsim):
 
         #Terminate sim conditions
-        if (np.linalg.norm(xtrueP[0:2,i]) < rp or xtrueP[0,i] < rp - rtot):
+        if (not inTrack and (np.linalg.norm(xtrueP[0:2,i]) < rp or xtrueP[0,i] < rp - rtot)):
+            iterm = i
+            break
+        elif (inTrack and (np.linalg.norm(xtrueP[0:2,i]) < rp or xtrueP[1,i] < rp - rtot)):
             iterm = i
             break
 
