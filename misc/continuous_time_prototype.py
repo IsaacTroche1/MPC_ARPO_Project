@@ -50,6 +50,26 @@ Bp = np.array([
     [0.,     1.],
     ])
 
+
+def stateEqn(t, x, u):
+    Ap = np.array([
+        [0., 0., 1., 0.],
+        [0., 0., 0., 1.],
+        [3 * n ** 2, 0., 0., 2 * n],
+        [0., 0., -2 * n, 0.],
+    ])
+
+    Bp = np.array([
+        [0., 0.],
+        [0., 0.],
+        [1., 0.],
+        [0., 1.],
+    ])
+
+    # u = np.array([[1],[1]])
+    dxdt = Ap@x + Bp@u
+    return dxdt
+
 #Discretize
 Ad = sparse.csc_matrix(sp.linalg.expm(Ap*T))
 x = sy.symbols('x')
@@ -73,8 +93,42 @@ x_valsC = np.empty([4, nsimC])
 x_valsC[:,0] = x0
 time = 0
 for i in range(nsimC-1):
-    x_valsC[:,i+1] = x_valsC[:,i] + (Ap@x_valsC[:,i] + Bp@ctrlC[:,i])*Tcont
+    soln = sp.integrate.solve_ivp(stateEqn, (time, time + Tcont), x_valsC[:, i], args=(ctrlC[:, i],))
+    x_valsC[:,i+1] = soln.y[:,-1]
 
+# x_valsC_rk = np.empty([4, nsimC])
+# x_valsC_rk[:,0] = x0
+# x_valsC_fe = np.empty([4, nsimC])
+# x_valsC_fe[:,0] = x0
+# ctrlR = np.array([[1],[1]])
+# time = 0
+# for i in range(nsimC-1):
+#     x_valsC_fe[:,i+1] = x_valsC_fe[:,i] + (Ap@x_valsC_fe[:,i] + Bp@ctrlR[:,0])*Tcont
+#     soln = sp.integrate.solve_ivp(stateEqn, (time,time+Tcont), x_valsC_rk[:,i], args = (ctrlR[:,0],))
+#     x_valsC_rk[:,i+1] = soln.y[:,-1]
+#     time = time + Tcont
+
+
+# plt.figure(1)
+# x1p = plt.subplot2grid((4, 3), (0, 0), rowspan=1, colspan=3)
+# x2p = plt.subplot2grid((4, 3), (1, 0), rowspan=1, colspan=3)
+# x3p = plt.subplot2grid((4, 3), (2, 0), rowspan=1, colspan=3)
+# x4p = plt.subplot2grid((4, 3), (3, 0), rowspan=1, colspan=3)
+#
+# x1p.plot(xTimeC, x_valsC_fe[0,:])
+# x1p.plot(xTimeC, x_valsC_rk[0,:])
+# x1p.title.set_text('States')
+# x1p.legend(['Forward Euler', 'RK4'])
+#
+# x2p.plot(xTimeC, x_valsC_fe[1,:])
+# x2p.plot(xTimeC, x_valsC_rk[1,:])
+#
+# x3p.plot(xTimeC, x_valsC_fe[2,:])
+# x3p.plot(xTimeC, x_valsC_rk[2,:])
+#
+# x4p.plot(xTimeC, x_valsC_fe[3,:])
+# x4p.plot(xTimeC, x_valsC_rk[3,:])
+# plt.show()
 
 
 
@@ -97,7 +151,6 @@ x3p.plot(xTimeC, x_valsC[2,:])
 
 x4p.plot(xTimeD, x_valsD[3,:])
 x4p.plot(xTimeC, x_valsC[3,:])
-plt.show()
 
 plt.figure(2)
 u1p = plt.subplot2grid((2, 3), (0, 0), rowspan=1, colspan=3)
