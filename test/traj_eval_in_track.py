@@ -37,11 +37,11 @@ noises = None
 #MPC controller setup
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
 R_mpc = 1000**2*sparse.diags([1, 1])
-R_mpc_s = 5**2*sparse.eye(5)  #make argument programmatic
+R_mpc_s = 5**2*sparse.diags([1.5,1.5,1,1,1e5])  #make argument programmatic
 ECRscale = 50000
 v_ecr = ECRscale*np.ones(5) #0 for hard constraints
 v_ecr[-2] = -1*v_ecr[-2]
-v_ecr[-1] = 0
+v_ecr[-1] = 1e-09
 horizons = {"Nx":40,
             "Nc":5,
             "Nb":5}
@@ -65,5 +65,5 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
 figurePlotSave(sim_conditions, debris, sim_run_test)
 
-animateTrajectory(sim_conditions, sim_run_test, debris)
+# animateTrajectory(sim_conditions, sim_run_test, debris)
 

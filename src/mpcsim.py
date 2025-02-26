@@ -204,10 +204,10 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         x3p = plt.subplot2grid((4, 3), (2, 0), rowspan=1, colspan=3)
         x4p = plt.subplot2grid((4, 3), (3, 0), rowspan=1, colspan=3)
 
-        x1p.plot(xTime, xestO[0, :iterm])
-        x2p.plot(xTime, xestO[1, :iterm])
-        x3p.plot(xTime, xestO[2, :iterm])
-        x4p.plot(xTime, xestO[3, :iterm])
+        x1p.plot(xTime, xtruePiece[0, :iterm])
+        x2p.plot(xTime, xtruePiece[1, :iterm])
+        x3p.plot(xTime, xtruePiece[2, :iterm])
+        x4p.plot(xTime, xtruePiece[3, :iterm])
 
         estTrueStates.set_size_inches((7, 7.5))
         estTrueStates.set_dpi(300)

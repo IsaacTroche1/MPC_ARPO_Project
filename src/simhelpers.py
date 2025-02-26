@@ -9,6 +9,8 @@ from src.mpcsim import *
 
 def configureDynamicConstraints(sim_conditions:SimConditions, mpc_params:MPCParams, debris:Debris, xest, block_mats, u_lim):
 
+    # xest = np.copy(xest)
+
     def debugPlotConstraint(sqVerts,xest,inTrack,slope,intercept):
 
         def pltline(slope,intercept):

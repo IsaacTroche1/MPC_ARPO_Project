@@ -360,4 +360,3 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, noiseStored)
     return sim_run
 
-#debrisFullTraj(1, 50000, 50, 0.2, 45)

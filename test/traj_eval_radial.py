@@ -33,7 +33,7 @@ xr = np.array([rx,ry,0.,0.])
 is_reject = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
-#noises = None
+noises = None
 
 #MPC controller setup
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
@@ -63,8 +63,8 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
 #Actual simulation
-# sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
-# figurePlotSave(sim_conditions, debris, sim_run_test)
+sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
+figurePlotSave(sim_conditions, debris, sim_run_test)
 # outfile = open('RunObjs/test_run0.pkl','wb')
 # pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
 # outfile.close()
@@ -77,16 +77,16 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 #
 # animateTrajectory(obj1, obj2, debris)
 
-i = 0
-direc = 'RunObjs/'
-filename = 'Run'
-while (True):
-    sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
-    print(sim_run_test.isSuccess)
-    if (sim_run_test.isSuccess):
-        figurePlotSave(sim_conditions, debris, sim_run_test, i)
-        outfile = open(direc + filename + str(i) + '.pkl','wb')
-        pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test}, outfile)
-        outfile.close()
-        animateTrajectory(sim_conditions, sim_run_test, debris)
-    i = i + 1
+# i = 0
+# direc = 'RunObjs/'
+# filename = 'Run'
+# while (True):
+#     sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
+#     print(sim_run_test.isSuccess)
+#     if (sim_run_test.isSuccess):
+#         figurePlotSave(sim_conditions, debris, sim_run_test, i)
+#         outfile = open(direc + filename + str(i) + '.pkl','wb')
+#         pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test}, outfile)
+#         outfile.close()
+#         animateTrajectory(sim_conditions, sim_run_test, debris)
+#     i = i + 1
