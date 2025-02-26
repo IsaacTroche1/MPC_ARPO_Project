@@ -203,7 +203,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     block_mats = (Aeq, Aineq2, Block12, Block21, AextRow, AextCol, C)
     u_lim = (umin, umax)
 
-    A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, np.hstack([x0,0,0]), block_mats, u_lim)
+    A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, np.hstack([np.copy(x0),0,0]), block_mats, u_lim)
     l = np.hstack([leq, lineq])
     u = np.hstack([ueq, uineq])
 
