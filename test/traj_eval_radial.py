@@ -22,9 +22,9 @@ ang_tolerance = 45
 platform_radius = 2.5
 tolerance_radius = 1.5
 los_angle = 10*(np.pi/180)
-hatch_offset = 0*(np.pi/180)
 mean_motion = 1.107e-3
 sample_time = 0.5
+in_track = False
 x0 = np.array([100.,10.,0.,0])
 rx = platform_radius
 ry = 0
@@ -33,10 +33,10 @@ xr = np.array([rx,ry,0.,0.])
 is_reject = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
-#noises = None
+noises = None
 
 #MPC controller setup
-Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900])
+Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
 R_mpc = 1000**2*sparse.diags([1, 1])
 R_mpc_s = 5**2*sparse.eye(5)  #make argument programmatic
 ECRscale = 50000
@@ -53,7 +53,7 @@ R_failsafe = 100*np.diag([1, 1])
 C_refx = np.eye(1,4)
 
 #populate conditions
-sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, hatch_offset, mean_motion, sample_time, is_reject, success_cond, noises)
+sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
 debris = Debris(center, side_length, detect_dist)
 #debris = None
@@ -64,18 +64,18 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 #Actual simulation
 sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
-figurePlotSave(sim_conditions, debris, sim_run_test, 0)
-outfile = open('RunObjs/test_run0.pkl','wb')
-pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
-outfile.close()
-
-infile = open('RunObjs/test_run0.pkl','rb')
-objs = pkl.load(infile)
-obj1 = objs['simcond']
-obj2 = objs['simrun']
-infile.close()
-
-animateTrajectory(obj1, obj2, debris)
+figurePlotSave(sim_conditions, debris, sim_run_test)
+# outfile = open('RunObjs/test_run0.pkl','wb')
+# pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
+# outfile.close()
+#
+# infile = open('RunObjs/test_run0.pkl','rb')
+# objs = pkl.load(infile)
+# obj1 = objs['simcond']
+# obj2 = objs['simrun']
+# infile.close()
+#
+# animateTrajectory(obj1, obj2, debris)
 
 # i = 0
 # direc = 'RunObjs/'
@@ -88,5 +88,5 @@ animateTrajectory(obj1, obj2, debris)
 #         outfile = open(direc + filename + str(i) + '.pkl','wb')
 #         pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test}, outfile)
 #         outfile.close()
-#         #animateTrajectory(sim_conditions, sim_run_test, debris)
+#         animateTrajectory(sim_conditions, sim_run_test, debris)
 #     i = i + 1
