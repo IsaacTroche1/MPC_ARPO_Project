@@ -41,8 +41,6 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     # Initial and reference states
     x0 = sim_conditions.x0
     xr = sim_conditions.xr
-    rx = xr[0]
-    ry = xr[1]
 
     if debris is not None:
         #Debris bounding box
@@ -196,7 +194,6 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     ueq = leq
 
 
-    Aineq1 = sparse.kron(sparse.eye(Nx+1), C)
     Aineq2 = sparse.kron(sparse.eye(Nc), sparse.eye(nu+ny))
     Block12 = sparse.vstack([np.kron(np.eye(Nc),D), np.kron(np.zeros([(Nx+1)-Nc,Nc]),np.zeros([ny,nu+ny]))])
     Block21 = sparse.coo_matrix((Nc*(nu+ny),(Nx+1)*nx))
@@ -332,18 +329,10 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
         xv1n_test[i] = np.absolute(xtruePiece[2,i]) + np.absolute(xtruePiece[3,i])
 
     #Decide if successul trajectory
-    minAng = np.inf
-    minDist = np.inf
     succTraj = False
     for i in range(iterm-1,0,-1):
         dist = np.linalg.norm(xtruePiece[0:2,i] - xr[0:2])
         ang = abs(math.atan(xtruePiece[3,i]/xtruePiece[2,i]))*(180/np.pi)
-        if (dist < minDist):
-            minDist = dist
-            minDisti = i
-        if (ang < minAng):
-            minAng = ang
-            minAngi = i
         if (dist <= distTol and ang <= angTol):
             succTraj = True
             break
