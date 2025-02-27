@@ -30,7 +30,7 @@ rx = platform_radius
 ry = 0
 xr = np.array([rx,ry,0.,0.])
 
-is_reject = False
+is_reject = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
 # noises = None
