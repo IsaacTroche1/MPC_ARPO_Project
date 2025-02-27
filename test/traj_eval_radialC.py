@@ -62,7 +62,7 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
 
-#Actual simulation
+# Actual simulation
 # sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
 # outfile = open('RunObjs/test_run_cont.pkl','wb')
 # pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris},outfile)
@@ -75,6 +75,7 @@ obj2 = objs['simrun']
 obj3 = objs['debris']
 infile.close()
 
+obj1.T_final = 70
 figurePlotSave(obj1, obj3, obj2)
 
 # outfile = open('RunObjs/test_run0.pkl','wb')

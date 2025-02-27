@@ -40,7 +40,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
     #Contiuous time simulation setup
     T_cont = sim_conditions.T_cont
-    time_final = 70 # make this programmatic
+    time_final = sim_conditions.T_final
     nsimD = int(time_final / T)
     nsimC = int(time_final / T_cont)
 
@@ -255,7 +255,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     ifailsf = []
     impc = []
     xtrueP = np.empty([nx,nsimC])
-    xestO = np.empty([nx+ndi,nsimC])
+    xestO = np.empty([nx+ndi,nsimD])
     xintf = 0
     noiseStored = np.empty([nx,nsimC])
     ctrls = np.empty([nu,nsimC])
