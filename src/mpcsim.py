@@ -16,7 +16,7 @@ class Noise:
 
 
 class SimConditions:
-    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False, T_cont:float=float('nan')):
+    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False, T_cont:float=float('nan'), T_final:int=100):
         self.x0 = x0
         self.xr = xr
         self.r_p = r_p
@@ -30,6 +30,7 @@ class SimConditions:
         self.noise = noise
         self.inTrack = inTrack
         self.T_cont = T_cont
+        self.T_final = T_final
 
 class SimRun:
     def __init__(self, i_term:int, isSuccess:bool, x_true_pcw, x_est, ctrl_hist, ctrlr_seq, noise_hist):
@@ -109,6 +110,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     n = sim_conditions.mean_mtn
     T = sim_conditions.time_stp
     T_cont = sim_conditions.T_cont
+    time_final = sim_conditions.T_final
 
     rx = sim_conditions.xr[0]
     ry = sim_conditions.xr[1]
@@ -126,9 +128,15 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         xSampsL = xSampsU
 
     if (T_cont == float('nan')):
-        xTime = [T * x for x in range(iterm)]
+        uTime = [T * x for x in range(1, iterm + 1)]
+        xTimeC = [T * x for x in range(iterm)]
+        xTimeD = xTimeC
     else:
-        xTime = [T_cont * x for x in range(iterm)]
+        uTime = [T_cont * x for x in range(1, iterm + 1)]
+        itermD = int(iterm/(T/T_cont))
+        xTimeD = np.arange(0, time_final, T)[:itermD]
+        xTimeC = np.arange(0, time_final, T_cont)[:iterm]
+        #xTimeD = xTimeC
 
     # contruct velocity one norms
     xv1n = np.empty(xtruePiece.shape[1])
@@ -209,10 +217,10 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         x3p = plt.subplot2grid((4, 3), (2, 0), rowspan=1, colspan=3)
         x4p = plt.subplot2grid((4, 3), (3, 0), rowspan=1, colspan=3)
 
-        x1p.plot(xTime, xtruePiece[0, :iterm])
-        x2p.plot(xTime, xtruePiece[1, :iterm])
-        x3p.plot(xTime, xtruePiece[2, :iterm])
-        x4p.plot(xTime, xtruePiece[3, :iterm])
+        x1p.plot(xTimeC, xtruePiece[0, :iterm])
+        x2p.plot(xTimeC, xtruePiece[1, :iterm])
+        x3p.plot(xTimeC, xtruePiece[2, :iterm])
+        x4p.plot(xTimeC, xtruePiece[3, :iterm])
 
         estTrueStates.set_size_inches((7, 7.5))
         estTrueStates.set_dpi(300)
@@ -239,18 +247,18 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         d1p = plt.subplot2grid((6, 3), (4, 0), rowspan=1, colspan=3)
         d2p = plt.subplot2grid((6, 3), (5, 0), rowspan=1, colspan=3)
 
-        x1p.plot(xTime, xtruePiece[0, :iterm + 1])
-        x1p.plot(xTime, xestO[0, :iterm])
-        x2p.plot(xTime, xtruePiece[1, :iterm + 1])
-        x2p.plot(xTime, xestO[1, :iterm])
-        x3p.plot(xTime, xtruePiece[2, :iterm + 1])
-        x3p.plot(xTime, xestO[2, :iterm])
-        x4p.plot(xTime, xtruePiece[3, :iterm + 1])
-        x4p.plot(xTime, xestO[3, :iterm])
-        d1p.plot(xTime, noiseStored[0, :iterm])
-        d1p.plot(xTime, xestO[4, :iterm])
-        d2p.plot(xTime, noiseStored[1, :iterm])
-        d2p.plot(xTime, xestO[5, :iterm])
+        x1p.plot(xTimeC, xtruePiece[0, :iterm + 1])
+        x1p.plot(xTimeD, xestO[0, :iterm])
+        x2p.plot(xTimeC, xtruePiece[1, :iterm + 1])
+        x2p.plot(xTimeD, xestO[1, :iterm])
+        x3p.plot(xTimeC, xtruePiece[2, :iterm + 1])
+        x3p.plot(xTimeD, xestO[2, :iterm])
+        x4p.plot(xTimeC, xtruePiece[3, :iterm + 1])
+        x4p.plot(xTimeD, xestO[3, :iterm])
+        d1p.plot(xTimeC, noiseStored[0, :iterm])
+        d1p.plot(xTimeD, xestO[4, :iterm])
+        d2p.plot(xTimeC, noiseStored[1, :iterm])
+        d2p.plot(xTimeD, xestO[5, :iterm])
 
         estTrueStates.set_size_inches((7, 7.5))
         estTrueStates.set_dpi(300)
@@ -276,7 +284,6 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     u1p = plt.subplot2grid((2, 3), (0, 0), rowspan=1, colspan=3)
     u2p = plt.subplot2grid((2, 3), (1, 0), rowspan=1, colspan=3)
 
-    uTime = [T * x for x in range(1, iterm + 1)]
     u1p.plot(uTime, ctrls[0, :iterm])
     u2p.plot(uTime, ctrls[1, :iterm])
 
