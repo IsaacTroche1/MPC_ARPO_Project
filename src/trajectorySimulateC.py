@@ -13,7 +13,7 @@ from src.simhelpers import *
 
 def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    # random.seed(123)
+    random.seed(123)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -286,7 +286,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
 
             # Measurement and state estimate
-            if (noise is not None):
+            if (False):
                 xnom = Ao @ xestO[:, disc_j - 1] + Bou @ ctrl
                 Pest = Ao @ Pest @ np.transpose(Ao) + Qw
                 L = Pest @ np.transpose(Co) @ sp.linalg.inv(Co @ Pest @ np.transpose(Co))
@@ -336,6 +336,13 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
             ctrls[:,i] = ctrl
             disc_j = disc_j + 1
+
+            if (disc_j % noiseRepeat == 0):
+                noiseVec = sigMat@random.normal(0, 1, 4)
+                noiseStored[:, i] = noiseVec
+            else:
+                noiseVec = noiseVec
+                noiseStored[:, i] = noiseVec
         else:
             if (impc[-1] == i - 1):
                 impc.append(i)
@@ -346,18 +353,12 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
             ctrl = ctrls[:,i-1]
             ctrls[:,i] = ctrl
+            noiseVec = noiseStored[:, i-1]
+            noiseStored[:, i] = noiseVec
 
         soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
         xtrueP[:,i+1] = soln.y[:,-1]
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
-
-        #Inject noise into plant
-        if (i % noiseRepeat == 0):
-            noiseVec = sigMat@random.normal(0, 1, 4)
-            noiseStored[:,i+1] = noiseVec
-        else:
-            noiseVec = noiseVec
-            noiseStored[:,i+1] = noiseVec
 
         time = time + T_cont
         # print(time)

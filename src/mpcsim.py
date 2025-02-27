@@ -211,7 +211,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
                  np.reshape(xv1n[:iterm], iterm), color='b', label='Relative Velocity L1 Norm')
     velConp.legend(['Relative Velocity L1 Norm (m/s)'], loc='upper left', prop={'size': 5})
 
-    if (False):
+    if (sim_conditions.noise is None):
         estTrueStates = plt.figure(2)
         x1p = plt.subplot2grid((4, 3), (0, 0), rowspan=1, colspan=3)
         x2p = plt.subplot2grid((4, 3), (1, 0), rowspan=1, colspan=3)
@@ -256,10 +256,10 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         x3p.plot(xTimeD, xestO[2, :itermD])
         x4p.plot(xTimeC, xtruePiece[3, :iterm + 1])
         x4p.plot(xTimeD, xestO[3, :itermD])
-        # d1p.plot(xTimeC, noiseStored[0, :iterm])
-        # d1p.plot(xTimeD, xestO[4, :itermD])
-        # d2p.plot(xTimeC, noiseStored[1, :iterm])
-        # d2p.plot(xTimeD, xestO[5, :itermD])
+        d1p.plot(xTimeC, noiseStored[0, :iterm])
+        d1p.plot(xTimeD, xestO[4, :itermD])
+        d2p.plot(xTimeC, noiseStored[1, :iterm])
+        d2p.plot(xTimeD, xestO[5, :itermD])
 
         estTrueStates.set_size_inches((7, 7.5))
         estTrueStates.set_dpi(300)

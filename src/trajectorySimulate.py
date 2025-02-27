@@ -13,7 +13,7 @@ from src.simhelpers import *
 
 def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    # random.seed(123)
+    random.seed(123)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -310,7 +310,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
         prob.update(Ax = A.data, l=l, u=u)
 
         #Inject noise into plant
-        if (i % noiseRepeat == 0):
+        if ((i+1) % noiseRepeat == 0):
             noiseVec = sigMat@random.normal(0, 1, 4)
             noiseStored[:,i+1] = noiseVec
         else: 
