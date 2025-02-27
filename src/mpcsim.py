@@ -127,7 +127,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         xSampsU = np.arange(0, 110, xInt)
         xSampsL = xSampsU
 
-    if (T_cont == float('nan')):
+    if (math.isnan(T_cont)):
         uTime = [T * x for x in range(1, iterm + 1)]
         xTimeC = [T * x for x in range(iterm)]
         xTimeD = xTimeC

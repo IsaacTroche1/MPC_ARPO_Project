@@ -53,10 +53,10 @@ R_failsafe = 100*np.diag([1, 1])
 C_refx = np.eye(1,4)
 
 #populate conditions
-sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_cont=0.001)
+sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_cont=0.001, T_final=80)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
-# debris = Debris(center, side_length, detect_dist)
-debris = None
+debris = Debris(center, side_length, detect_dist)
+# debris = None
 fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
@@ -75,7 +75,6 @@ obj2 = objs['simrun']
 obj3 = objs['debris']
 infile.close()
 
-obj1.T_final = 70
 figurePlotSave(obj1, obj3, obj2)
 
 # outfile = open('RunObjs/test_run0.pkl','wb')

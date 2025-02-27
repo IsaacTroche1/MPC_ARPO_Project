@@ -360,7 +360,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             noiseStored[:,i+1] = noiseVec
 
         time = time + T_cont
-        print(time)
+        # print(time)
 
     #Construct piecewise trajectory
     xtruePiece = np.empty([nx,iterm])
