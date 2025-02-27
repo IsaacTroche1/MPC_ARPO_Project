@@ -232,6 +232,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     xintf = 0
     noiseStored = np.empty([nx,nsim+1])
     ctrls = np.empty([nu,nsim])
+    ctrls[:, 0] = np.array([0., 0.])
     xv1n = np.empty([1,nsim+1])
     xv1n[0,0] = xtrueP[2,0] + xtrueP[3,0]
     xtrueP[:,0] = xtrue0
@@ -261,12 +262,12 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
             if (xestO[0,i] - (center[0] + sideLength/2) < 0 and xestO[0,i] - (center[0] - sideLength/2) > 0 and xestO[1,i] < (center[1] + sideLength/2) and xestO[1,i] > (center[1] - sideLength/2)):
                 ifailsd.append(i)
                 #break
-                xintf = xintf + Crefy@xtrueP[:,i] - (center[1] + sideLength/2) #theres a potential bug here with the sign of the control, test in animation
+                xintf = xintf + Crefy@xestO[:4,i] - (center[1] + sideLength/2) #theres a potential bug here with the sign of the control, test in animation
                 ctrl = -K_total@xestO[:4,i] - K_i@xintf
             else:
                 ifailsf.append(i)
                 #break
-                xintf = xintf + Crefx@xtrueP[:,i] - xr[0]
+                xintf = xintf + Crefx@xestO[:4,i] - xr[0]
                 ctrl = -Kpf@xestO[:4,i] - Kif@xintf
         else:
             impc.append(i)
@@ -280,9 +281,9 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
 
 
         # Apply first control input to the plant
-        ctrls[:,i] = ctrl
+        ctrls[:,i+1] = ctrl
         #remmembr to change to estimated state
-        xtrueP[:,i+1] = Ad@xtrueP[:,i] + Bd@ctrl + noiseVec
+        xtrueP[:,i+1] = Ad@xtrueP[:,i] + Bd@ctrls[:,i+1] + noiseVec
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
 
