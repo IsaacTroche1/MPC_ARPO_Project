@@ -95,6 +95,7 @@ time = 0
 for i in range(nsimC-1):
     soln = sp.integrate.solve_ivp(stateEqn, (time, time + Tcont), x_valsC[:, i], args=(ctrlC[:, i],))
     x_valsC[:,i+1] = soln.y[:,-1]
+    time = time + Tcont
 
 # x_valsC_rk = np.empty([4, nsimC])
 # x_valsC_rk[:,0] = x0

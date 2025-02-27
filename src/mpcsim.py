@@ -16,7 +16,7 @@ class Noise:
 
 
 class SimConditions:
-    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False):
+    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False, T_cont:float=float('nan')):
         self.x0 = x0
         self.xr = xr
         self.r_p = r_p
@@ -29,6 +29,7 @@ class SimConditions:
         self.suc_cond = suc_cond
         self.noise = noise
         self.inTrack = inTrack
+        self.T_cont = T_cont
 
 class SimRun:
     def __init__(self, i_term:int, isSuccess:bool, x_true_pcw, x_est, ctrl_hist, ctrlr_seq, noise_hist):
@@ -107,6 +108,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     phi = sim_conditions.hatch_ofst
     n = sim_conditions.mean_mtn
     T = sim_conditions.time_stp
+    T_cont = sim_conditions.T_cont
 
     rx = sim_conditions.xr[0]
     ry = sim_conditions.xr[1]
@@ -123,7 +125,10 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         xSampsU = np.arange(0, 110, xInt)
         xSampsL = xSampsU
 
-    xTime = [T * x for x in range(iterm)]
+    if (T_cont == float('nan')):
+        xTime = [T * x for x in range(iterm)]
+    else:
+        xTime = [T_cont * x for x in range(iterm)]
 
     # contruct velocity one norms
     xv1n = np.empty(xtruePiece.shape[1])
