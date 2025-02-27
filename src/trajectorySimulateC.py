@@ -285,6 +285,30 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
         if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
 
+            # Measurement and state estimate
+            if (noise is not None):
+                xnom = Ao @ xestO[:, disc_j - 1] + Bou @ ctrl
+                Pest = Ao @ Pest @ np.transpose(Ao) + Qw
+                L = Pest @ np.transpose(Co) @ sp.linalg.inv(Co @ Pest @ np.transpose(Co))
+                ymeas = Cm @ xtrueP[:, i]
+                xestO[:, disc_j] = xnom + L @ (ymeas - Co @ xnom)
+                Pest = (np.eye(nx + ndi) - L @ Co) @ Pest
+            else:
+                xestO[:, disc_j] = np.hstack([xtrueP[:, i], [0., 0.]])
+
+            # Update initial state                              #PROBLEM UPDATE MAY NEED TO GO BEFORE SOLUTION
+            # also need to change to estimated state
+            l[:nx] = -xestO[:4, disc_j]
+            u[:nx] = -xestO[:4, disc_j]
+            prob.update(l=l, u=u)
+
+            # Reconfigure velocity constraint
+            A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, xestO[:, disc_j],
+                                                          block_mats, u_lim)
+            l[(Nx + 1) * nx:] = lineq
+            u[(Nx + 1) * nx:] = uineq
+            prob.update(Ax=A.data, l=l, u=u)
+
             # Solve
             res = prob.solve()
 
@@ -326,30 +350,6 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
         xtrueP[:,i+1] = soln.y[:,-1]
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
-
-
-        #Measurement and state estimate
-        if (noise is not None):
-            xnom = Ao@xestO[:,i] + Bou@ctrl
-            Pest = Ao@Pest@np.transpose(Ao) + Qw
-            L = Pest@np.transpose(Co)@sp.linalg.inv(Co@Pest@np.transpose(Co))
-            ymeas = Cm@xtrueP[:,i]
-            xestO[:,i+1] = xnom + L@(ymeas - Co@xnom)
-            Pest = (np.eye(nx+ndi) - L@Co)@Pest
-        else:
-            xestO[:,i+1] = np.hstack([xtrueP[:,i+1], [0.,0.]])
-
-        # Update initial state
-        #also need to change to estimated state
-        l[:nx] = -xestO[:4,i+1]
-        u[:nx] = -xestO[:4,i+1]
-        prob.update(l=l, u=u)
-
-        #Reconfigure velocity constraint
-        A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, xestO[:,i+1], block_mats, u_lim)
-        l[(Nx+1)*nx:] = lineq
-        u[(Nx+1)*nx:] = uineq
-        prob.update(Ax = A.data, l=l, u=u)
 
         #Inject noise into plant
         if (i % noiseRepeat == 0):
