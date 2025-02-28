@@ -11,8 +11,8 @@ side_length = 5.
 detect_dist = 20
 
 #noise setup
-sig_x = 0.3
-sig_y = 0.3
+sig_x = 0.5
+sig_y = 0.5
 noise_length = 50
 
 #success conditions setup
@@ -34,7 +34,7 @@ xr = np.array([rx,ry,0.,0.])
 is_reject = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
-# noises = None
+noises = None
 
 #MPC controller setup
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
@@ -75,6 +75,7 @@ obj1 = objs['simcond']
 obj2 = objs['simrun']
 obj3 = objs['debris']
 infile.close()
+
 
 figurePlotSave(obj1, obj3, obj2)
 
