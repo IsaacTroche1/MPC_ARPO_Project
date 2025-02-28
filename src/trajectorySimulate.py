@@ -13,7 +13,7 @@ from src.simhelpers import *
 
 def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    random.seed(123)
+    # random.seed(123)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -292,7 +292,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
             xnom = Ao@xestO[:,i] + Bou@ctrl
             Pest = Ao@Pest@np.transpose(Ao) + Qw
             L = Pest@np.transpose(Co)@sp.linalg.inv(Co@Pest@np.transpose(Co))
-            ymeas = Cm@xtrueP[:,i] # This may be a bug, try i + 1
+            ymeas = Cm@xtrueP[:,i+1] # This may be a bug, try i + 1
             xestO[:,i+1] = xnom + L@(ymeas - Co@xnom)
             Pest = (np.eye(nx+ndi) - L@Co)@Pest
         else:

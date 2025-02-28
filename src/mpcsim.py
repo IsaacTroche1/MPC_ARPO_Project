@@ -94,7 +94,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
 
 
     def numberToColor(num):
-        if (num == 1):
+        if (num == 1 or num == 0):
             col = 'b'
         elif (num == 2):
             col = 'r'
