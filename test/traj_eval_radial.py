@@ -53,7 +53,7 @@ R_failsafe = 100*np.diag([1, 1])
 C_refx = np.eye(1,4)
 
 #populate conditions
-sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track)
+sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_final=60)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
 debris = Debris(center, side_length, detect_dist)
 #debris = None

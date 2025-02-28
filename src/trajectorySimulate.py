@@ -38,6 +38,9 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     n = sim_conditions.mean_mtn
     T = sim_conditions.time_stp
 
+    time_final = sim_conditions.T_final
+    nsimD = int(time_final / T)
+
     # Initial and reference states
     x0 = sim_conditions.x0
     xr = sim_conditions.xr
@@ -222,7 +225,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     Pest = 10*np.eye(nx+ndi)
 
     # Simulate in closed loop
-    nsim = 1300
+    nsim = nsimD
     iterm = nsim
     ifailsd = []
     ifailsf = []
@@ -231,7 +234,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     xestO = np.empty([nx+ndi,nsim+1])
     xintf = 0
     noiseStored = np.empty([nx,nsim+1])
-    ctrls = np.empty([nu,nsim])
+    ctrls = np.empty([nu,nsim+1])
     ctrls[:, 0] = np.array([0., 0.])
     xv1n = np.empty([1,nsim+1])
     xv1n[0,0] = xtrueP[2,0] + xtrueP[3,0]
@@ -283,13 +286,13 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
         # Apply first control input to the plant
         ctrls[:,i+1] = ctrl
         #remmembr to change to estimated state
-        xtrueP[:,i+1] = Ad@xtrueP[:,i] + Bd@ctrls[:,i+1] + noiseVec
+        xtrueP[:,i+1] = Ad@xtrueP[:,i] + Bd@ctrls[:,i] + noiseVec
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
 
         #Measurement and state estimate
         if (noise is not None):
-            xnom = Ao@xestO[:,i] + Bou@ctrl
+            xnom = Ao@xestO[:,i] + Bou@ctrls[:,i]
             Pest = Ao@Pest@np.transpose(Ao) + Qw
             L = Pest@np.transpose(Co)@sp.linalg.inv(Co@Pest@np.transpose(Co))
             ymeas = Cm@xtrueP[:,i+1] # This may be a bug, try i + 1
