@@ -64,10 +64,10 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
 # Actual simulation
-sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
-outfile = open('RunObjs/test_run_cont_2.pkl','wb')
-pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris},outfile)
-outfile.close()
+# sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
+# outfile = open('RunObjs/test_run_cont_2.pkl','wb')
+# pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris},outfile)
+# outfile.close()
 
 infile = open('RunObjs/test_run_cont_2.pkl','rb')
 objs = pkl.load(infile)

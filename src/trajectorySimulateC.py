@@ -259,7 +259,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     xintf = 0
     noiseStored = np.empty([nx,nsimC])
     ctrls = np.empty([nu,nsimC])
-    ctrls[:,0] = np.array([0.,0.])
+    ctrls[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),np.zeros([2,1]))
     xv1n = np.empty([1,nsimC])
     xv1n[0,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]), (xtrueP[2,0]+xtrueP[3,0]))
     xtrueP[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),xtrue0.reshape(-1,1))
@@ -334,7 +334,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             noiseVec = noiseStored[:, i-1]
             noiseStored[:, i] = noiseVec
 
-        soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i+1], noiseStored[:,i]))
+        soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i], noiseStored[:,i]))
         xtrueP[:,i+1] = soln.y[:,-1]
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
