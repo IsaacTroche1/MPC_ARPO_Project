@@ -169,3 +169,12 @@ def constructOsqpAeq(mpc_params:MPCParams, Ad, Bd, K, ny):
     Aeq = sparse.hstack([Ax, Bu])
 
     return Aeq
+
+def continuousAppendIndex(impc, ifailsf, ifailsd, i):
+
+    if (bool(impc) and impc[-1] == i - 1):
+        impc.append(i)
+    elif (bool(ifailsf) and ifailsf[-1] == i - 1):
+        ifailsf.append(i)
+    elif (bool(ifailsd) and ifailsd[-1] == i - 1):
+        ifailsd.append(i)

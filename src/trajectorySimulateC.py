@@ -284,8 +284,6 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             iterm = i
             break
 
-        pass
-
         if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
 
             # Solve
@@ -322,12 +320,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
                 noiseVec = noiseVec
                 noiseStored[:, i] = noiseVec
         else:
-            if (bool(impc) and impc[-1] == i - 1):
-                impc.append(i)
-            elif (bool(ifailsf) and ifailsf[-1] == i - 1):
-                ifailsf.append(i)
-            elif (bool(ifailsd) and ifailsd[-1] == i - 1):
-                ifailsd.append(i)
+            continuousAppendIndex(impc, ifailsf, ifailsd, i)
 
             ctrl = ctrls[:,i]
             ctrls[:,i+1] = ctrl
@@ -366,6 +359,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
         time = time + T_cont
         # print(time)
+    continuousAppendIndex(impc, ifailsf, ifailsd, i + 1)
 
     #Construct piecewise trajectory
     xtruePiece = np.empty([nx,iterm])
