@@ -13,7 +13,7 @@ from src.simhelpers import *
 
 def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    # random.seed(123)
+    random.seed(123)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -265,7 +265,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     xtrueP[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),xtrue0.reshape(-1,1))
     xestO[:,0] = xest0
     noiseVec = sigMat@random.normal(0, 1, 4)
-    noiseStored[:,0] = noiseVec
+    noiseStored[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),noiseVec.reshape(-1,1))
 
     Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
     Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
@@ -334,11 +334,11 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
             # Measurement and state estimate
             if (noise is not None):
-                xnom = Ao @ xestO[:, disc_j] + Bou @ ctrls[:, i+1]
+                xnom = Ao @ xestO[:, disc_j-1] + Bou @ ctrls[:, i]
                 Pest = Ao @ Pest @ np.transpose(Ao) + Qw
                 L = Pest @ np.transpose(Co) @ sp.linalg.inv(Co @ Pest @ np.transpose(Co))
                 ymeas = Cm @ xtrueP[:, i+1]
-                xestO[:, disc_j + 1] = xnom + L @ (ymeas - Co @ xnom)
+                xestO[:, disc_j] = xnom + L @ (ymeas - Co @ xnom)
                 Pest = (np.eye(nx + ndi) - L @ Co) @ Pest
             else:
                 xestO[:,disc_j] = np.hstack([xtrueP[:,i+1], [0., 0.]])
