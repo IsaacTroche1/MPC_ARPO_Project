@@ -1,5 +1,6 @@
 from scipy import sparse
 import numpy as np
+import scipy as sp
 import matplotlib
 #import pyqt5
 import matplotlib.pyplot as plt
@@ -178,3 +179,12 @@ def continuousAppendIndex(impc, ifailsf, ifailsd, i):
         ifailsf.append(i)
     elif (bool(ifailsd) and ifailsd[-1] == i - 1):
         ifailsd.append(i)
+
+def integrateNoise(Ap, Bnoise, Qw, T):
+    Aop = sp.linalg.block_diag(Ap,np.zeros([2,2]))
+    n = Ap.shape[0] + 2
+    phi = np.block([[Aop,Bnoise@Qw@np.transpose(Bnoise)],[np.zeros([n,n]), -Aop]])
+    AB = sp.linalg.expm(phi*T) @ np.vstack([np.zeros([n,n]), np.eye(n)])
+    Qw = AB[:n,:] * np.linalg.inv(AB[n:2*n,:])
+    return Qw
+
