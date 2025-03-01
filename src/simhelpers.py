@@ -1,9 +1,10 @@
 from scipy import sparse
 import numpy as np
+from numpy import random
+import scipy as sp
 import matplotlib
-#import pyqt5
 import matplotlib.pyplot as plt
-#matplotlib.use('Qt5Agg')
+import control as ct
 
 from src.mpcsim import *
 
@@ -169,3 +170,20 @@ def constructOsqpAeq(mpc_params:MPCParams, Ad, Bd, K, ny):
     Aeq = sparse.hstack([Ax, Bu])
 
     return Aeq
+
+def continuousAppendIndex(impc, ifailsf, ifailsd, i):
+
+    if (bool(impc) and impc[-1] == i - 1):
+        impc.append(i)
+    elif (bool(ifailsf) and ifailsf[-1] == i - 1):
+        ifailsf.append(i)
+    elif (bool(ifailsd) and ifailsd[-1] == i - 1):
+        ifailsd.append(i)
+
+def integrateNoise(Ap, Bnoise, Qw, T):
+    Aop = sp.linalg.block_diag(Ap,np.zeros([2,2]))
+    n = Ap.shape[0] + 2
+    phi = np.block([[Aop,Bnoise@Qw@np.transpose(Bnoise)],[np.zeros([n,n]), -Aop]])
+    AB = sp.linalg.expm(phi*T) @ np.vstack([np.zeros([n,n]), np.eye(n)])
+    Qw = AB[:n,:] * np.linalg.inv(AB[n:2*n,:])
+    return Qw

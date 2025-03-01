@@ -11,7 +11,7 @@ from src.simhelpers import *
 
 
 
-def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
+def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
     # random.seed(123)
 
@@ -38,8 +38,33 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     n = sim_conditions.mean_mtn
     T = sim_conditions.time_stp
 
+    #Contiuous time simulation setup
+    T_cont = sim_conditions.T_cont
     time_final = sim_conditions.T_final
     nsimD = int(time_final / T)
+    nsimC = int(time_final / T_cont)
+
+    xTimeD = np.arange(0, time_final, T)
+    xTimeC = np.arange(0, time_final, T_cont)
+
+    def stateEqn(t, x, u, noise_vec):
+        Ap = np.array([
+            [0., 0., 1., 0.],
+            [0., 0., 0., 1.],
+            [3 * n ** 2, 0., 0., 2 * n],
+            [0., 0., -2 * n, 0.],
+        ])
+
+        Bp = np.array([
+            [0., 0.],
+            [0., 0.],
+            [1., 0.],
+            [0., 1.],
+        ])
+
+        # u = np.array([[1],[1]])
+        dxdt = Ap@x + Bp@u + noise_vec
+        return dxdt
 
     # Initial and reference states
     x0 = sim_conditions.x0
@@ -225,29 +250,42 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     Pest = 10*np.eye(nx+ndi)
 
     # Simulate in closed loop
-    nsim = nsimD
-    iterm = nsim
+    iterm = nsimC
     ifailsd = []
     ifailsf = []
     impc = []
-    xtrueP = np.empty([nx,nsim+1])
-    xestO = np.empty([nx+ndi,nsim+1])
+    xtrueP = np.empty([nx,nsimC])
+    xestO = np.empty([nx+ndi,nsimD+1])
     xintf = 0
-    noiseStored = np.empty([nx,nsim+1])
-    ctrls = np.empty([nu,nsim+1])
-    ctrls[:, 0] = np.array([0., 0.])
-    xv1n = np.empty([1,nsim+1])
-    xv1n[0,0] = xtrueP[2,0] + xtrueP[3,0]
-    xtrueP[:,0] = xtrue0
-    xestO[:,0] = xest0  
-    noiseVec = sigMat@random.normal(0, 1, 4)
-    noiseStored[:,0] = noiseVec
+    noiseStored = np.empty([nx,nsimC])
+    ctrls = np.empty([nu,nsimC])
+    ctrls[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),np.zeros([2,1]))
+    xv1n = np.empty([1,nsimC])
+    xv1n[0,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]), (xtrueP[2,0]+xtrueP[3,0]))
+    xtrueP[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),xtrue0.reshape(-1,1))
+    xestO[:,0] = xest0
+
+    #Set up continuous time noise
+    Qcont = np.diag([sigMat[0,0]**2, sigMat[0,0]**2])
+    noiseInterval = T*noiseRepeat
+    noiseTimes = np.arange(0, time_final, noiseRepeat)
+    noiseIntC = int((noiseRepeat * T) / T_cont)
+    V = ct.white_noise(noiseTimes, Qcont, dt=0.001)
+    j = 0
+    for col in V.T:
+        noiseStored[:, j * noiseIntC:noiseIntC * (1 + j)] = np.vstack([col.reshape(ndi, 1),np.zeros([2,1])])
+        j += 1
 
     Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
     Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
     Qw = np.diag([40*sigMat[0,0]**2, 40*sigMat[1,1]**2])
     Qw = Bnoise@Qw@np.transpose(Bnoise)
-    for i in range(nsim):
+
+    # Qw = integrateNoise(Ap,Bnoise, Qw, T)
+
+    disc_j = 1
+    time = T
+    for i in range(500, nsimC-1):
 
         #Terminate sim conditions
         if (not inTrack and (np.linalg.norm(xtrueP[0:2,i]) < rp or xtrueP[0,i] < rp - rtot)):
@@ -257,72 +295,78 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
             iterm = i
             break
 
-        # Solve
-        res = prob.solve()
+        if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
 
-        #Check solver status
-        if res.info.status != 'solved':
-            if (xestO[0,i] - (center[0] + sideLength/2) < 0 and xestO[0,i] - (center[0] - sideLength/2) > 0 and xestO[1,i] < (center[1] + sideLength/2) and xestO[1,i] > (center[1] - sideLength/2)):
-                ifailsd.append(i)
-                #break
-                xintf = xintf + Crefy@xestO[:4,i] - (center[1] + sideLength/2) #theres a potential bug here with the sign of the control, test in animation
-                ctrl = -K_total@xestO[:4,i] - K_i@xintf
+            # Solve
+            res = prob.solve()
+
+            #Check solver status
+            if res.info.status != 'solved':
+                if (xestO[0,disc_j-1] - (center[0] + sideLength/2) < 0 and xestO[0,disc_j-1] - (center[0] - sideLength/2) > 0 and xestO[1,disc_j-1] < (center[1] + sideLength/2) and xestO[1,disc_j-1] > (center[1] - sideLength/2)):
+                    ifailsd.append(i)
+                    #break
+                    xintf = xintf + Crefy@xestO[:4,disc_j-1] - (center[1] + sideLength/2) #theres a potential bug here with the sign of the control, test in animation
+                    ctrl = -K_total@xestO[:4,disc_j-1] - K_i@xintf
+                else:
+                    ifailsf.append(i)
+                    #break
+                    xintf = xintf + Crefx@xestO[:4,disc_j-1] - xr[0]
+                    ctrl = -Kpf@xestO[:4,disc_j-1] - Kif@xintf
             else:
-                ifailsf.append(i)
-                #break
-                xintf = xintf + Crefx@xestO[:4,i] - xr[0]
-                ctrl = -Kpf@xestO[:4,i] - Kif@xintf
+                impc.append(i)
+                xintf = 0
+                ctrl = res.x[(Nx+1)*nx:(Nx+1)*nx+nu]
+
+            #Scale input if excees max/min
+            if (np.linalg.norm(ctrl) > umax[0]):
+                ctrl[0] = ctrl[0]*(umax[0]/np.linalg.norm(ctrl))
+                ctrl[1] = ctrl[1]*(umax[0]/np.linalg.norm(ctrl))
+
+            ctrls[:,i+1] = ctrl
+
         else:
-            impc.append(i)
-            xintf = 0
-            ctrl = res.x[(Nx+1)*nx:(Nx+1)*nx+nu]
+            continuousAppendIndex(impc, ifailsf, ifailsd, i)
 
-        #Scale input if excees max/min
-        if (np.linalg.norm(ctrl) > umax[0]):
-            ctrl[0] = ctrl[0]*(umax[0]/np.linalg.norm(ctrl))
-            ctrl[1] = ctrl[1]*(umax[0]/np.linalg.norm(ctrl))
+            ctrl = ctrls[:,i]
+            ctrls[:,i+1] = ctrl
 
-
-        # Apply first control input to the plant
-        ctrls[:,i+1] = ctrl
-        #remmembr to change to estimated state
-        xtrueP[:,i+1] = Ad@xtrueP[:,i] + Bd@ctrls[:,i] + noiseVec
+        soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i], noiseStored[:,i]))
+        xtrueP[:,i+1] = soln.y[:,-1]
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
+        if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
+            # Measurement and state estimate
+            if (noise is not None):
+                xnom = Ao @ xestO[:, disc_j-1] + Bou @ ctrls[:, i]
+                Pest = Ao @ Pest @ np.transpose(Ao) + Qw
+                L = Pest @ np.transpose(Co) @ sp.linalg.inv(Co @ Pest @ np.transpose(Co))
+                ymeas = Cm @ xtrueP[:, i+1]
+                xestO[:, disc_j] = xnom + L @ (ymeas - Co @ xnom)
+                Pest = (np.eye(nx + ndi) - L @ Co) @ Pest
+            else:
+                xestO[:,disc_j] = np.hstack([xtrueP[:,i+1], [0., 0.]])
 
-        #Measurement and state estimate
-        if (noise is not None):
-            xnom = Ao@xestO[:,i] + Bou@ctrls[:,i]
-            Pest = Ao@Pest@np.transpose(Ao) + Qw
-            L = Pest@np.transpose(Co)@sp.linalg.inv(Co@Pest@np.transpose(Co))
-            ymeas = Cm@xtrueP[:,i+1] # This may be a bug, try i + 1
-            xestO[:,i+1] = xnom + L@(ymeas - Co@xnom)
-            Pest = (np.eye(nx+ndi) - L@Co)@Pest
-        else:
-            xestO[:,i+1] = np.hstack([xtrueP[:,i+1], [0.,0.]])
+            # Update initial state
+            # also need to change to estimated state
+            l[:nx] = -xestO[:4, disc_j]
+            u[:nx] = -xestO[:4, disc_j]
+            prob.update(l=l, u=u)
 
-        # Update initial state
-        #also need to change to estimated state
-        l[:nx] = -xestO[:4,i+1]
-        u[:nx] = -xestO[:4,i+1]
-        prob.update(l=l, u=u)
+            # Reconfigure velocity constraint
+            A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, xestO[:, disc_j], block_mats, u_lim)
+            l[(Nx + 1) * nx:] = lineq
+            u[(Nx + 1) * nx:] = uineq
+            prob.update(Ax=A.data, l=l, u=u)
 
-        #Reconfigure velocity constraint
-        A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, xestO[:,i+1], block_mats, u_lim)
-        l[(Nx+1)*nx:] = lineq
-        u[(Nx+1)*nx:] = uineq
-        prob.update(Ax = A.data, l=l, u=u)
+            disc_j = disc_j + 1
 
-        #Inject noise into plant
-        if ((i+1) % noiseRepeat == 0):
-            noiseVec = sigMat@random.normal(0, 1, 4)
-            noiseStored[:,i+1] = noiseVec
-        else: 
-            noiseVec = noiseVec
-            noiseStored[:,i+1] = noiseVec
+        time = time + T_cont
+        # print(time)
+    continuousAppendIndex(impc, ifailsf, ifailsd, i + 1)
 
     #Construct piecewise trajectory
     xtruePiece = np.empty([nx,iterm])
+    xtruePiece[:,:int(T/T_cont)+1] = xtrueP[:,:int(T/T_cont)+1]
     xtruePiece[:,impc] = xtrueP[:,impc]
     xtruePiece[:,ifailsf] = xtrueP[:,ifailsf]
     xtruePiece[:,ifailsd] = xtrueP[:,ifailsd]
@@ -343,13 +387,14 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
 
 
     controllerSeq = np.empty(iterm)
+    controllerSeq[:int(T/T_cont)] = 0
     for i in impc:
         controllerSeq[i] = 1
     for i in ifailsf:
         controllerSeq[i] = 2
     for i in ifailsd:
         controllerSeq[i] = 3
+    controllerSeq[-1] = controllerSeq[-2]
 
     sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, noiseStored)
     return sim_run
-
