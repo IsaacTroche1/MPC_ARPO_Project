@@ -270,9 +270,9 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
     Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
     Qw = np.diag([40*sigMat[0,0]**2, 40*sigMat[1,1]**2])
-    # Qw = Bnoise@Qw@np.transpose(Bnoise)
+    Qw = Bnoise@Qw@np.transpose(Bnoise)
 
-    Qw = integrateNoise(Ap,Bnoise, Qw, T)
+    # Qw = integrateNoise(Ap,Bnoise, Qw, T)
 
     disc_j = 1
     time = T

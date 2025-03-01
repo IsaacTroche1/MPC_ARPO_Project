@@ -10,8 +10,8 @@ side_length = 5.
 detect_dist = 20
 
 #noise setup
-sig_x = 0.3
-sig_y = 0.3
+sig_x = 1
+sig_y = 1
 noise_length = 50
 
 #success conditions setup
@@ -30,7 +30,7 @@ rx = platform_radius
 ry = 0
 xr = np.array([rx,ry,0.,0.])
 
-is_reject = True
+is_reject = False
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
 # noises = None
@@ -65,15 +65,15 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 #Actual simulation
 sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
 figurePlotSave(sim_conditions, debris, sim_run_test)
-# outfile = open('RunObjs/test_run0.pkl','wb')
-# pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
-# outfile.close()
+outfile = open('RunObjs/test_run0.pkl','wb')
+pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
+outfile.close()
 #
-# infile = open('RunObjs/test_run0.pkl','rb')
-# objs = pkl.load(infile)
-# obj1 = objs['simcond']
-# obj2 = objs['simrun']
-# infile.close()
+infile = open('RunObjs/test_run0.pkl','rb')
+objs = pkl.load(infile)
+obj1 = objs['simcond']
+obj2 = objs['simrun']
+infile.close()
 #
 # animateTrajectory(obj1, obj2, debris)
 
@@ -88,5 +88,5 @@ figurePlotSave(sim_conditions, debris, sim_run_test)
 #         outfile = open(direc + filename + str(i) + '.pkl','wb')
 #         pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test}, outfile)
 #         outfile.close()
-#         animateTrajectory(sim_conditions, sim_run_test, debris)
+#         # animateTrajectory(sim_conditions, sim_run_test, debris)
 #     i = i + 1
