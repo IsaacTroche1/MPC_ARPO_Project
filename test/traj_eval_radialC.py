@@ -11,8 +11,8 @@ side_length = 5.
 detect_dist = 20
 
 #noise setup
-sig_x = 1
-sig_y = 1
+sig_x = 0.7
+sig_y = 0.7
 noise_length = 50
 
 #success conditions setup
@@ -25,7 +25,7 @@ tolerance_radius = 1.5
 los_angle = 10*(np.pi/180)
 mean_motion = 1.107e-3
 sample_time = 0.5
-final_time = 150
+final_time = 300
 cont_time_T = 0.001
 
 in_track = False
@@ -34,7 +34,7 @@ rx = platform_radius
 ry = 0
 xr = np.array([rx,ry,0.,0.])
 
-is_reject = False
+is_reject = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
 # noises = None
@@ -67,48 +67,32 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
 # Actual simulation
-sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
-outfile = open('RunObjs/test_run_cont_2.pkl','wb')
-pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris},outfile)
-outfile.close()
-
-infile = open('RunObjs/test_run_cont_2.pkl','rb')
-objs = pkl.load(infile)
-obj1 = objs['simcond']
-obj2 = objs['simrun']
-obj3 = objs['debris']
-infile.close()
-
-
-# xTimeC = np.arange(0, final_time, cont_time_T)[:obj2.i_term]
-# plt.figure(1)
-# plt.plot(xTimeC[:1500],obj2.x_true_pcw[2,:1500])
-# plt.show()
-
-figurePlotSave(obj1, obj3, obj2)
-
-# outfile = open('RunObjs/test_run0.pkl','wb')
-# pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
+# sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
+# outfile = open('RunObjs/test_run_cont_2.pkl','wb')
+# pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris},outfile)
 # outfile.close()
 #
-# infile = open('RunObjs/test_run0.pkl','rb')
+# infile = open('RunObjs/test_run_cont_2.pkl','rb')
 # objs = pkl.load(infile)
 # obj1 = objs['simcond']
 # obj2 = objs['simrun']
+# obj3 = objs['debris']
 # infile.close()
 #
+# figurePlotSave(obj1, obj3, obj2)
+
 # animateTrajectory(obj1, obj2, debris)
 
-# i = 0
-# direc = 'RunObjs/'
-# filename = 'Run'
-# while (True):
-#     sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
-#     print(sim_run_test.isSuccess)
-#     if (sim_run_test.isSuccess):
-#         figurePlotSave(sim_conditions, debris, sim_run_test, i)
-#         outfile = open(direc + filename + str(i) + '.pkl','wb')
-#         pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test}, outfile)
-#         outfile.close()
-#         animateTrajectory(sim_conditions, sim_run_test, debris)
-#     i = i + 1
+i = 0
+direc = 'RunObjs/'
+filename = 'Run'
+while (True):
+    sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
+    print(sim_run_test.isSuccess)
+    if (sim_run_test.isSuccess):
+        figurePlotSave(sim_conditions, debris, sim_run_test, i)
+        outfile = open(direc + filename + str(i) + '.pkl','wb')
+        pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris}, outfile)
+        outfile.close()
+        # animateTrajectory(sim_conditions, sim_run_test, debris)
+    i = i + 1
