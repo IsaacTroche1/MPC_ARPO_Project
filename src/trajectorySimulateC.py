@@ -13,7 +13,7 @@ from src.simhelpers import *
 
 def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    random.seed(123)
+    # random.seed(123)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -264,8 +264,17 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     xv1n[0,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]), (xtrueP[2,0]+xtrueP[3,0]))
     xtrueP[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),xtrue0.reshape(-1,1))
     xestO[:,0] = xest0
-    noiseVec = sigMat@random.normal(0, 1, 4)
-    noiseStored[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),noiseVec.reshape(-1,1))
+
+    #Set up continuous time noise
+    Qcont = np.diag([sigMat[0,0]**2, sigMat[0,0]**2])
+    noiseInterval = T*noiseRepeat
+    noiseTimes = np.arange(0, time_final, noiseRepeat)
+    noiseIntC = int((noiseRepeat * T) / T_cont)
+    V = ct.white_noise(noiseTimes, Qcont, dt=0.001)
+    j = 0
+    for col in V.T:
+        noiseStored[:, j * noiseIntC:noiseIntC * (1 + j)] = np.vstack([col.reshape(ndi, 1),np.zeros([2,1])])
+        j += 1
 
     Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
     Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
@@ -293,16 +302,16 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
             #Check solver status
             if res.info.status != 'solved':
-                if (xestO[0,disc_j] - (center[0] + sideLength/2) < 0 and xestO[0,disc_j] - (center[0] - sideLength/2) > 0 and xestO[1,disc_j] < (center[1] + sideLength/2) and xestO[1,disc_j] > (center[1] - sideLength/2)):
+                if (xestO[0,disc_j-1] - (center[0] + sideLength/2) < 0 and xestO[0,disc_j-1] - (center[0] - sideLength/2) > 0 and xestO[1,disc_j-1] < (center[1] + sideLength/2) and xestO[1,disc_j-1] > (center[1] - sideLength/2)):
                     ifailsd.append(i)
                     #break
-                    xintf = xintf + Crefy@xestO[:4,disc_j] - (center[1] + sideLength/2) #theres a potential bug here with the sign of the control, test in animation
-                    ctrl = -K_total@xestO[:4,disc_j] - K_i@xintf
+                    xintf = xintf + Crefy@xestO[:4,disc_j-1] - (center[1] + sideLength/2) #theres a potential bug here with the sign of the control, test in animation
+                    ctrl = -K_total@xestO[:4,disc_j-1] - K_i@xintf
                 else:
                     ifailsf.append(i)
                     #break
-                    xintf = xintf + Crefx@xestO[:4,disc_j] - xr[0]
-                    ctrl = -Kpf@xestO[:4,disc_j] - Kif@xintf
+                    xintf = xintf + Crefx@xestO[:4,disc_j-1] - xr[0]
+                    ctrl = -Kpf@xestO[:4,disc_j-1] - Kif@xintf
             else:
                 impc.append(i)
                 xintf = 0
@@ -315,19 +324,11 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
             ctrls[:,i+1] = ctrl
 
-            if (disc_j % noiseRepeat == 0):
-                noiseVec = sigMat@random.normal(0, 1, 4)
-                noiseStored[:, i] = noiseVec
-            else:
-                noiseVec = noiseVec
-                noiseStored[:, i] = noiseVec
         else:
             continuousAppendIndex(impc, ifailsf, ifailsd, i)
 
             ctrl = ctrls[:,i]
             ctrls[:,i+1] = ctrl
-            noiseVec = noiseStored[:, i-1]
-            noiseStored[:, i] = noiseVec
 
         soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i], noiseStored[:,i]))
         xtrueP[:,i+1] = soln.y[:,-1]
