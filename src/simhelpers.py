@@ -1,10 +1,11 @@
 from scipy import sparse
 import numpy as np
+from numpy import random
 import scipy as sp
 import matplotlib
 #import pyqt5
 import matplotlib.pyplot as plt
-#matplotlib.use('Qt5Agg')
+import control as ct
 
 from src.mpcsim import *
 
@@ -188,3 +189,32 @@ def integrateNoise(Ap, Bnoise, Qw, T):
     Qw = AB[:n,:] * np.linalg.inv(AB[n:2*n,:])
     return Qw
 
+#TODO Turn this into a contime vector and use it for noise in sim, if that doesnt work MOVE ON
+random.seed(123)
+sig_x = 0.7
+sig_y = 0.7
+Qw = np.diag([sig_x**2, sig_y**2])
+
+T = 0.5
+T_cont = 0.001
+T_final = 200
+
+noiseTimes = np.arange(0, T_final, 25)
+xTimeC = np.arange(0,T_final,T_cont)
+V = ct.white_noise(noiseTimes, Qw, dt=0.5)
+
+noise_length = 50
+
+ndi = 2
+nsimC = int(T_final / T_cont)
+noiseIntC = int((noise_length*T)/T_cont)
+noiseStored = np.empty([ndi,nsimC])
+j = 0
+for n in V.T:
+    noiseStored[:,j*noiseIntC:noiseIntC*(1+j)] = n.reshape(ndi,1)
+    j += 1
+
+plt.figure(1)
+plt.plot(xTime, V[0,:])
+plt.plot(xTimeC, noiseStored[0,:])
+plt.show()

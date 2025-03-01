@@ -11,8 +11,8 @@ side_length = 5.
 detect_dist = 20
 
 #noise setup
-sig_x = 0.3
-sig_y = 0.3
+sig_x = 1
+sig_y = 1
 noise_length = 50
 
 #success conditions setup
@@ -25,13 +25,16 @@ tolerance_radius = 1.5
 los_angle = 10*(np.pi/180)
 mean_motion = 1.107e-3
 sample_time = 0.5
+final_time = 150
+cont_time_T = 0.001
+
 in_track = False
 x0 = np.array([100.,10.,0.,0])
 rx = platform_radius
 ry = 0
 xr = np.array([rx,ry,0.,0.])
 
-is_reject = True
+is_reject = False
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
 # noises = None
@@ -54,7 +57,7 @@ R_failsafe = 100*np.diag([1, 1])
 C_refx = np.eye(1,4)
 
 #populate conditions
-sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_cont=0.001, T_final=60)
+sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_cont=cont_time_T, T_final=final_time)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
 debris = Debris(center, side_length, detect_dist)
 # debris = None
@@ -76,6 +79,11 @@ obj2 = objs['simrun']
 obj3 = objs['debris']
 infile.close()
 
+
+# xTimeC = np.arange(0, final_time, cont_time_T)[:obj2.i_term]
+# plt.figure(1)
+# plt.plot(xTimeC[:1500],obj2.x_true_pcw[2,:1500])
+# plt.show()
 
 figurePlotSave(obj1, obj3, obj2)
 
