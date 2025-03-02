@@ -187,3 +187,5 @@ def integrateNoise(Ap, Bnoise, Qw, T):
     AB = sp.linalg.expm(phi*T) @ np.vstack([np.zeros([n,n]), np.eye(n)])
     Qw = AB[:n,:] * np.linalg.inv(AB[n:2*n,:])
     return Qw
+
+def unscentedKF():
