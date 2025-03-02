@@ -62,8 +62,24 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             [0., 1.],
         ])
 
-        # u = np.array([[1],[1]])
         dxdt = Ap@x + Bp@u + noise_vec
+        return dxdt
+
+    def stateEqnN(t, x, u, noise_vec):
+
+        # Orbital calcs for nonlinear plant (ASSUMES 500KM ALT. ORBIT)
+        h = 500e+03
+        re = 6378.1e+03
+        R_T = h + re
+        mu = (n ** 2) * (R_T ** 3)
+
+        dxdt = [None] * 4
+
+        dxdt[0] = x[2] + noise_vec[0]
+        dxdt[1] = x[3] + noise_vec[1]
+        dxdt[2] = 2 * n * x[3] + (n ** 2) * x[0] - (mu * (R_T + x[0])) / (((R_T + x[0]) ** 2 + x[1] ** 2) ** (3 / 2)) + mu / (R_T ** 2) + u[0]
+        dxdt[3] = -2 * n * x[2] + (n ** 2) * x[1] - (mu * x[1]) / (((R_T + x[0]) ** 2 + x[1] ** 2) ** (3 / 2)) + u[1]
+
         return dxdt
 
     # Initial and reference states
@@ -330,7 +346,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             ctrl = ctrls[:,i]
             ctrls[:,i+1] = ctrl
 
-        soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i], noiseStored[:,i]))
+        soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i], noiseStored[:,i]))
         xtrueP[:,i+1] = soln.y[:,-1]
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 

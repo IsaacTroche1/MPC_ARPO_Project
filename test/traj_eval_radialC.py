@@ -68,31 +68,31 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 # Actual simulation
 # sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
-# outfile = open('RunObjs/test_run_cont_2.pkl','wb')
+# outfile = open('RunObjs/test_run_cont_non.pkl','wb')
 # pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris},outfile)
 # outfile.close()
-#
-# infile = open('RunObjs/test_run_cont_2.pkl','rb')
-# objs = pkl.load(infile)
-# obj1 = objs['simcond']
-# obj2 = objs['simrun']
-# obj3 = objs['debris']
-# infile.close()
-#
+
+infile = open('RunObjs/Run0.pkl','rb')
+objs = pkl.load(infile)
+obj1 = objs['simcond']
+obj2 = objs['simrun']
+obj3 = objs['debris']
+infile.close()
+
 # figurePlotSave(obj1, obj3, obj2)
 
-# animateTrajectory(obj1, obj2, debris)
+animateTrajectory(obj1, obj2, debris)
 
-i = 0
-direc = 'RunObjs/'
-filename = 'Run'
-while (True):
-    sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
-    print(sim_run_test.isSuccess)
-    if (sim_run_test.isSuccess):
-        figurePlotSave(sim_conditions, debris, sim_run_test, i)
-        outfile = open(direc + filename + str(i) + '.pkl','wb')
-        pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris}, outfile)
-        outfile.close()
-        # animateTrajectory(sim_conditions, sim_run_test, debris)
-    i = i + 1
+# i = 0
+# direc = 'RunObjs/'
+# filename = 'Run'
+# while (True):
+#     sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
+#     print(sim_run_test.isSuccess)
+#     if (sim_run_test.isSuccess):
+#         figurePlotSave(sim_conditions, debris, sim_run_test, i)
+#         outfile = open(direc + filename + str(i) + '.pkl','wb')
+#         pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris}, outfile)
+#         outfile.close()
+#         # animateTrajectory(sim_conditions, sim_run_test, debris)
+#     i = i + 1
