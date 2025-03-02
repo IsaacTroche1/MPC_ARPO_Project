@@ -13,7 +13,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     disturbs = sim_run.noise_hist #use noiseHist for saved runs 50 and 495
 
     def colorNumToObj(num):
-        if (num == 1): #MPC
+        if (num == 1 or num == 0): #MPC
             colVec = vector(0,0,1)
         elif (num == 2): #LQR Failsafe
             colVec = vector(1,0,0)
@@ -63,7 +63,10 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     rtot = sim_conditions.r_tol
     phi = sim_conditions.hatch_ofst
     n = sim_conditions.mean_mtn
-    T = sim_conditions.time_stp
+    if (math.isnan(sim_conditions.T_cont)):
+        dt = sim_conditions.time_stp
+    else:
+        dt = sim_conditions.T_cont
 
     #Animated constraints
     xInt = 0.1
@@ -79,8 +82,6 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     yConeU = -((rp-rtot)*math.sin(gam)/(math.cos(phi+gam))) + math.tan(phi+gam)*xSampsU
     inputScale = 50
     disturbScale = 50
-
-    dt = sim_conditions.time_stp
 
     def acceleration(targ,earth):
         rrel = targ.pos - earth.pos
