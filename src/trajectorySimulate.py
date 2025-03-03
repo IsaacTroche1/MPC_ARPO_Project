@@ -110,7 +110,10 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
         return Ao@x + Bou@u
 
     def hx(x):
-        return Co@x
+        ymeas = np.empty(nym)
+        ymeas[0] = np.linalg.norm(x[:2])
+        ymeas[1] = math.atan2(x[1],x[0])
+        return ymeas
 
     sig_points = MerweScaledSigmaPoints(6, alpha=0.1, beta=2., kappa=-1)
 
@@ -233,7 +236,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     #Intial conditions
     xtrue0 = x0
     xest0 = np.hstack([x0, 0., 0.]) #note this assumes we dont know the inital distrubance value (zeros)
-    Pest = sp.linalg.block_diag(0.1*np.eye(nx),100000*np.eye(ndi))
+    Pest = sp.linalg.block_diag(1e-20*np.eye(nx),np.eye(ndi))
 
     # Simulate in closed loop
     nsim = nsimD
@@ -254,7 +257,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     noiseVec = sigMat@random.normal(0, 1, 4)
     noiseStored[:,0] = noiseVec
 
-    Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
+    Bnoise = np.vstack([np.zeros([nx,ndi]), (T)*np.eye(ndi)]) #try with T*eye
     Qw = np.diag([sigMat[0,0]**2, sigMat[1,1]**2])
     Qw = Bnoise@Qw@np.transpose(Bnoise)
     Qw[:4,:][:,:4] = 0.001*np.eye(nx)
@@ -311,7 +314,9 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
 
         #Measurement and state estimate
         if (noise is not None):
-            ymeas = Cm@xtrueP[:,i+1] # This may be a bug, try i + 1
+            ymeas = np.empty(nym)
+            ymeas[0] = np.linalg.norm(xtrueP[:2,i+1])
+            ymeas[1] = math.atan2(xtrueP[1,i+1], xtrueP[0,i+1])
             kf.predict(ctrls[:,i])
             kf.update(z=ymeas)
             xestO[:, i+1] = kf.x
