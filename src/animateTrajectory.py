@@ -28,7 +28,11 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
 
     scene = canvas(width = 900, height = 650, align = 'left')
 
-    plot1 = graph(title='Control Inputs (ECI)', xtitle='Time (s)', ytitle='Control Input (N/kg)', width = 600, height = 300, align = 'right')
+    plot1 = graph(title='Control Inputs (ECI)', xtitle='Time (s)', width = 600, height = 300, align = 'right')
+    if (not sim_conditions.isDeltaV):
+        plot1 = graph(title='Control Inputs (ECI)', xtitle='Time (s)', ytitle='Control Input (m/s<sup>2</sup>)', width=600, height=300, align='right')
+    else:
+        plot1 = graph(title='Control Inputs (ECI)', xtitle='Time (s)', ytitle='Control Input (m/s)', width=600, height=300, align='right')
     if (disturbs.shape[0] != 0):
         plot2 = graph(title='Disturbances (ECI)', xtitle='Time (s)', ytitle='Positional Disturbance (m)', width = 600, height = 300, align = 'right')
         dxplot = gcurve(color = color.orange, label = 'X Disturbance', legend = True, graph = plot2)

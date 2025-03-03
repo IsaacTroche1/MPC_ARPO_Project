@@ -23,7 +23,7 @@ platform_radius = 2.5
 tolerance_radius = 1.5
 los_angle = 10*(np.pi/180)
 mean_motion = 1.107e-3
-sample_time = 0.5
+sample_time = 1
 in_track = False
 x0 = np.array([100.,10.,0.,0])
 rx = platform_radius
@@ -31,10 +31,10 @@ ry = 0
 xr = np.array([rx,ry,0.,0.])
 
 is_reject = False
-is_deltav = False
+is_deltav = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
-# noises = None
+noises = None
 
 #MPC controller setup
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
@@ -47,7 +47,7 @@ v_ecr[-1] = 0
 horizons = {"Nx":40,
             "Nc":5,
             "Nb":5}
-ulim = (0.2, 0.2)
+ulim = (5, 5)
 
 #failsafe controller setup
 Q_failsafe = 0.005*np.diag([0.0001, 1, 100000., 1., 0.01])
@@ -77,7 +77,7 @@ figurePlotSave(sim_conditions, debris, sim_run_test)
 # obj2 = objs['simrun']
 # infile.close()
 #
-# animateTrajectory(obj1, obj2, debris)
+animateTrajectory(sim_conditions, sim_run_test, debris)
 
 # i = 0
 # direc = 'RunObjs/'
