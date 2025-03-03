@@ -6,8 +6,7 @@ import math
 from scipy import sparse
 from numpy import random
 import control as ct
-import filterpy as fp
-from filterpy.common import Q_discrete_white_noise
+from filterpy.kalman import UnscentedKalmanFilter, MerweScaledSigmaPoints
 from src.mpcsim import *
 from src.simhelpers import *
 
@@ -15,7 +14,7 @@ from src.simhelpers import *
 
 def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    # random.seed(123)
+    random.seed(124)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -144,7 +143,20 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     Ao = sp.linalg.block_diag(Ad.toarray(), Adi)
     Ao[0,4] = 1.
     Ao[1,5] = 1.
+    Bou = np.vstack([Bd.toarray(), np.zeros([2, 2])])
     Co = np.hstack([Cm, np.zeros([2,2])])
+
+    # Measurement and state transition model for kalman filter
+    def fx(x, u):
+        return Ao @ x + Bou @ u
+
+    def hx(x):
+        ymeas = np.empty(nym)
+        ymeas[0] = np.linalg.norm(x[:2])
+        ymeas[1] = math.atan2(x[1], x[0])
+        return ymeas
+
+    sig_points = MerweScaledSigmaPoints(6, alpha=0.1, beta=2., kappa=-1)
 
     # - input and state constraints
     C_11 = math.sin(phi+gam)/((rp-rtot)*math.sin(gam))
@@ -265,7 +277,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     #Intial conditions
     xtrue0 = x0
     xest0 = np.hstack([x0, 0., 0.]) #note this assumes we dont know the inital distrubance value (zeros)
-    Pest = 10*np.eye(nx+ndi)
+    Pest = sp.linalg.block_diag(1e-20*np.eye(nx),np.eye(ndi))
 
     # Simulate in closed loop
     iterm = nsimC
@@ -297,12 +309,18 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         sum_vec[:, j * noiseRepeat:noiseRepeat * (1 + j)] = int(T/T_cont)*np.concatenate([col,np.zeros(2)]).reshape(-1,1)
         j += 1
 
-    Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
-    Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat*500)*np.eye(ndi)]) #try with T*eye
-    Qw = np.diag([400*sigMat[0,0]**2, 400*sigMat[1,1]**2])
-    Qw = Bnoise@Qw@np.transpose(Bnoise)
 
-    # Qw = integrateNoise(Ap,Bnoise, Qw, T)
+    Bnoise = np.vstack([np.zeros([nx,ndi]), (T*int(T/T_cont))*np.eye(ndi)]) #try with T*eye
+    Qw = np.diag([sigMat[0,0]**2, sigMat[1,1]**2])
+    Qw = Bnoise@Qw@np.transpose(Bnoise)
+    Qw[:4, :][:, :4] = 0.001 * np.eye(nx)
+
+    # Setup UKF
+    kf = UnscentedKalmanFilter(dim_x=6, dim_z=2, dt=T, fx=fx, hx=hx, points=sig_points)
+    kf.x = xest0
+    kf.P = Pest
+    kf.R = np.zeros([nym, nym])
+    kf.Q = Qw
 
     disc_j = 1
     time = T
@@ -358,12 +376,19 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
             # Measurement and state estimate
             if (noise is not None):
-                xnom = Ao @ xestO[:, disc_j-1] + Bou @ ctrls[:, i]
-                Pest = Ao @ Pest @ np.transpose(Ao) + Qw
-                L = Pest @ np.transpose(Co) @ sp.linalg.inv(Co @ Pest @ np.transpose(Co))
-                ymeas = Cm @ xtrueP[:, i+1]
-                xestO[:, disc_j] = xnom + L @ (ymeas - Co @ xnom)
-                Pest = (np.eye(nx + ndi) - L @ Co) @ Pest
+                # xnom = Ao @ xestO[:, disc_j-1] + Bou @ ctrls[:, i]
+                # Pest = Ao @ Pest @ np.transpose(Ao) + Qw
+                # L = Pest @ np.transpose(Co) @ sp.linalg.inv(Co @ Pest @ np.transpose(Co))
+                # ymeas = Cm @ xtrueP[:, i+1]
+                # xestO[:, disc_j] = xnom + L @ (ymeas - Co @ xnom)
+                # Pest = (np.eye(nx + ndi) - L @ Co) @ Pest
+
+                ymeas = np.empty(nym)
+                ymeas[0] = np.linalg.norm(xtrueP[:2, i+1])
+                ymeas[1] = math.atan2(xtrueP[1, i+1], xtrueP[0, i+1])
+                kf.predict(ctrls[:, i])
+                kf.update(z=ymeas)
+                xestO[:, disc_j] = kf.x
             else:
                 xestO[:,disc_j] = np.hstack([xtrueP[:,i+1], [0., 0.]])
 
