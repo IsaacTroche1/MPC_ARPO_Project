@@ -58,7 +58,7 @@ class Debris:
 
 
 class MPCParams:
-    def __init__(self, Q_state, R_input, R_slack, V_ecr, horizons, swap_xy:bool=False):
+    def __init__(self, Q_state, R_input, R_slack, V_ecr, horizons, u_lim:Tuple[float,float], swap_xy:bool=False):
         self.Q_state = Q_state
         self.R_input = R_input
         if (swap_xy):
@@ -73,6 +73,7 @@ class MPCParams:
         self.Nx = horizons["Nx"]
         self.Nc = horizons["Nc"]
         self.Nb = horizons["Nb"]
+        self.u_lim = u_lim
 
 
 class FailsafeParams:
