@@ -18,6 +18,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
+    isDeltaV = sim_conditions.isDeltaV
     distTol = sim_conditions.suc_cond[0]
     angTol = sim_conditions.suc_cond[1]
     noise = sim_conditions.noise
@@ -137,7 +138,10 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     for (i,j), func_ij in np.ndenumerate(eAx):
         func = sy.lambdify((x),func_ij)
         eAxInt[i,j] = sp.integrate.quad(func,0.,T)[0]
-    Bd = sparse.csc_matrix(eAxInt@Bp)
+    if (not isDeltaV):
+        Bd = sparse.csc_matrix(eAxInt @ Bp)
+    else:
+        Bd = sparse.csc_matrix(Ad @ np.vstack([np.zeros([2, 2]), np.eye(2)]))
 
     #Observer and dynamic systems
     Ao = sp.linalg.block_diag(Ad.toarray(), Adi)
@@ -369,8 +373,16 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             ctrl = ctrls[:,i]
             ctrls[:,i+1] = ctrl
 
-        soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
-        xtrueP[:,i+1] = soln.y[:,-1] + noiseStored[:,i]
+        if (not isDeltaV):
+            soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
+            xtrueP[:,i+1] = soln.y[:,-1] + noiseStored[:,i]
+        else:
+            soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(np.zeros(nu),))
+            if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
+                xtrueP[:, i + 1] = soln.y[:, -1] + np.hstack([np.zeros(2), ctrls[:,i]]) + noiseStored[:, i]
+            else:
+                xtrueP[:, i + 1] = soln.y[:, -1] + noiseStored[:, i]
+
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
         if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):

@@ -16,7 +16,7 @@ class Noise:
 
 
 class SimConditions:
-    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False, T_cont:float=float('nan'), T_final:int=100):
+    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False, T_cont:float=float('nan'), T_final:int=100, isDeltaV:bool=False):
         self.x0 = x0
         self.xr = xr
         self.r_p = r_p
@@ -31,6 +31,7 @@ class SimConditions:
         self.inTrack = inTrack
         self.T_cont = T_cont
         self.T_final = T_final
+        self.isDeltaV = isDeltaV
 
 class SimRun:
     def __init__(self, i_term:int, isSuccess:bool, x_true_pcw, x_est, ctrl_hist, ctrlr_seq, noise_hist):
@@ -288,9 +289,14 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     u1p.plot(uTime, ctrls[0, :iterm])
     u2p.plot(uTime, ctrls[1, :iterm])
 
-    u1p.title.set_text('Actuator Commands (LVLH)')
-    u1p.set_ylabel('$\mathregular{u_x}$ $\mathregular{(m/s^2)}$')
-    u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s^2)}$')
+    if (not sim_conditions.isDeltaV):
+        u1p.title.set_text('Actuator Commands (LVLH)')
+        u1p.set_ylabel('$\mathregular{u_x}$ $\mathregular{(m/s^2)}$')
+        u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s^2)}$')
+    else:
+        u1p.title.set_text('Actuator Commands (LVLH)')
+        u1p.set_ylabel('$\mathregular{u_x}$ $\mathregular{(m/s)}$')
+        u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s)}$')
     u2p.set_xlabel('Time (s)')
 
     if saveCounter != None:

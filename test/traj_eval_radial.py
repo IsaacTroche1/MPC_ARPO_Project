@@ -31,6 +31,7 @@ ry = 0
 xr = np.array([rx,ry,0.,0.])
 
 is_reject = False
+is_deltav = False
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
 # noises = None
@@ -53,7 +54,7 @@ R_failsafe = 100*np.diag([1, 1])
 C_refx = np.eye(1,4)
 
 #populate conditions
-sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_final=150)
+sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_final=150, isDeltaV=is_deltav)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
 debris = Debris(center, side_length, detect_dist)
 #debris = None
