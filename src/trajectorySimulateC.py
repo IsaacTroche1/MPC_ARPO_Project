@@ -6,6 +6,7 @@ import math
 from scipy import sparse
 from numpy import random
 import control as ct
+from filterpy.kalman import UnscentedKalmanFilter, MerweScaledSigmaPoints
 from src.mpcsim import *
 from src.simhelpers import *
 
@@ -13,7 +14,7 @@ from src.simhelpers import *
 
 def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    # random.seed(123)
+    random.seed(124)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -47,7 +48,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     xTimeD = np.arange(0, time_final, T)
     xTimeC = np.arange(0, time_final, T_cont)
 
-    def stateEqn(t, x, u, noise_vec):
+    def stateEqn(t, x, u):
         Ap = np.array([
             [0., 0., 1., 0.],
             [0., 0., 0., 1.],
@@ -62,10 +63,10 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             [0., 1.],
         ])
 
-        dxdt = Ap@x + Bp@u + noise_vec
+        dxdt = Ap@x + Bp@u
         return dxdt
 
-    def stateEqnN(t, x, u, noise_vec):
+    def stateEqnN(t, x, u):
 
         # Orbital calcs for nonlinear plant (ASSUMES 500KM ALT. ORBIT)
         h = 500e+03
@@ -75,8 +76,8 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
         dxdt = [None] * 4
 
-        dxdt[0] = x[2] + noise_vec[0]
-        dxdt[1] = x[3] + noise_vec[1]
+        dxdt[0] = x[2]
+        dxdt[1] = x[3]
         dxdt[2] = 2 * n * x[3] + (n ** 2) * x[0] - (mu * (R_T + x[0])) / (((R_T + x[0]) ** 2 + x[1] ** 2) ** (3 / 2)) + mu / (R_T ** 2) + u[0]
         dxdt[3] = -2 * n * x[2] + (n ** 2) * x[1] - (mu * x[1]) / (((R_T + x[0]) ** 2 + x[1] ** 2) ** (3 / 2)) + u[1]
 
@@ -142,7 +143,20 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     Ao = sp.linalg.block_diag(Ad.toarray(), Adi)
     Ao[0,4] = 1.
     Ao[1,5] = 1.
+    Bou = np.vstack([Bd.toarray(), np.zeros([2, 2])])
     Co = np.hstack([Cm, np.zeros([2,2])])
+
+    # Measurement and state transition model for kalman filter
+    def fx(x, u):
+        return Ao @ x + Bou @ u
+
+    def hx(x):
+        ymeas = np.empty(nym)
+        ymeas[0] = np.linalg.norm(x[:2])
+        ymeas[1] = math.atan2(x[1], x[0])
+        return ymeas
+
+    sig_points = MerweScaledSigmaPoints(6, alpha=0.1, beta=2., kappa=-1)
 
     # - input and state constraints
     C_11 = math.sin(phi+gam)/((rp-rtot)*math.sin(gam))
@@ -263,7 +277,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     #Intial conditions
     xtrue0 = x0
     xest0 = np.hstack([x0, 0., 0.]) #note this assumes we dont know the inital distrubance value (zeros)
-    Pest = 10*np.eye(nx+ndi)
+    Pest = sp.linalg.block_diag(1e-20*np.eye(nx),np.eye(ndi))
 
     # Simulate in closed loop
     iterm = nsimC
@@ -284,20 +298,29 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     #Set up continuous time noise
     Qcont = np.diag([sigMat[0,0]**2, sigMat[0,0]**2])
     noiseInterval = T*noiseRepeat
-    noiseTimes = np.arange(0, time_final, noiseRepeat)
+    noiseTimes = np.arange(0, time_final, noiseInterval)
     noiseIntC = int((noiseRepeat * T) / T_cont)
+    noiseIntD = int((noiseRepeat) / T)
     V = ct.white_noise(noiseTimes, Qcont, dt=0.001)
+    sum_vec = np.empty([nx,nsimD])
     j = 0
     for col in V.T:
         noiseStored[:, j * noiseIntC:noiseIntC * (1 + j)] = np.vstack([col.reshape(ndi, 1),np.zeros([2,1])])
+        sum_vec[:, j * noiseRepeat:noiseRepeat * (1 + j)] = int(T/T_cont)*np.concatenate([col,np.zeros(2)]).reshape(-1,1)
         j += 1
 
-    Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
-    Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
-    Qw = np.diag([40*sigMat[0,0]**2, 40*sigMat[1,1]**2])
-    Qw = Bnoise@Qw@np.transpose(Bnoise)
 
-    # Qw = integrateNoise(Ap,Bnoise, Qw, T)
+    Bnoise = np.vstack([np.zeros([nx,ndi]), (T*int(T/T_cont))*np.eye(ndi)]) #try with T*eye
+    Qw = np.diag([sigMat[0,0]**2, sigMat[1,1]**2])
+    Qw = Bnoise@Qw@np.transpose(Bnoise)
+    Qw[:4, :][:, :4] = 0.001 * np.eye(nx)
+
+    # Setup UKF
+    kf = UnscentedKalmanFilter(dim_x=6, dim_z=2, dt=T, fx=fx, hx=hx, points=sig_points)
+    kf.x = xest0
+    kf.P = Pest
+    kf.R = np.zeros([nym, nym])
+    kf.Q = Qw
 
     disc_j = 1
     time = T
@@ -346,19 +369,26 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             ctrl = ctrls[:,i]
             ctrls[:,i+1] = ctrl
 
-        soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i], noiseStored[:,i]))
-        xtrueP[:,i+1] = soln.y[:,-1]
+        soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
+        xtrueP[:,i+1] = soln.y[:,-1] + noiseStored[:,i]
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
         if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
             # Measurement and state estimate
             if (noise is not None):
-                xnom = Ao @ xestO[:, disc_j-1] + Bou @ ctrls[:, i]
-                Pest = Ao @ Pest @ np.transpose(Ao) + Qw
-                L = Pest @ np.transpose(Co) @ sp.linalg.inv(Co @ Pest @ np.transpose(Co))
-                ymeas = Cm @ xtrueP[:, i+1]
-                xestO[:, disc_j] = xnom + L @ (ymeas - Co @ xnom)
-                Pest = (np.eye(nx + ndi) - L @ Co) @ Pest
+                # xnom = Ao @ xestO[:, disc_j-1] + Bou @ ctrls[:, i]
+                # Pest = Ao @ Pest @ np.transpose(Ao) + Qw
+                # L = Pest @ np.transpose(Co) @ sp.linalg.inv(Co @ Pest @ np.transpose(Co))
+                # ymeas = Cm @ xtrueP[:, i+1]
+                # xestO[:, disc_j] = xnom + L @ (ymeas - Co @ xnom)
+                # Pest = (np.eye(nx + ndi) - L @ Co) @ Pest
+
+                ymeas = np.empty(nym)
+                ymeas[0] = np.linalg.norm(xtrueP[:2, i+1])
+                ymeas[1] = math.atan2(xtrueP[1, i+1], xtrueP[0, i+1])
+                kf.predict(ctrls[:, i])
+                kf.update(z=ymeas)
+                xestO[:, disc_j] = kf.x
             else:
                 xestO[:,disc_j] = np.hstack([xtrueP[:,i+1], [0., 0.]])
 
@@ -412,5 +442,5 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         controllerSeq[i] = 3
     controllerSeq[-1] = controllerSeq[-2]
 
-    sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, noiseStored)
+    sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, sum_vec)
     return sim_run

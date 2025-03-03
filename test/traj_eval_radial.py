@@ -65,15 +65,15 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 #Actual simulation
 sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
 figurePlotSave(sim_conditions, debris, sim_run_test)
-outfile = open('RunObjs/test_run0.pkl','wb')
-pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
-outfile.close()
-#
-infile = open('RunObjs/test_run0.pkl','rb')
-objs = pkl.load(infile)
-obj1 = objs['simcond']
-obj2 = objs['simrun']
-infile.close()
+# outfile = open('RunObjs/test_run0.pkl','wb')
+# pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test},outfile)
+# outfile.close()
+# #
+# infile = open('RunObjs/test_run0.pkl','rb')
+# objs = pkl.load(infile)
+# obj1 = objs['simcond']
+# obj2 = objs['simrun']
+# infile.close()
 #
 # animateTrajectory(obj1, obj2, debris)
 
