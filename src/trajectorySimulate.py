@@ -14,7 +14,7 @@ from src.simhelpers import *
 
 def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    # random.seed(124)
+    random.seed(124)
 
     isReject = sim_conditions.isReject
     isDeltaV = sim_conditions.isDeltaV
@@ -149,8 +149,9 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
 
 
     # Constraints
-    umin = np.hstack([-0.2, -0.2, np.zeros(ny)])
-    umax = np.hstack([0.2, 0.2, np.inf*np.ones(ny)])
+    ulim = mpc_params.u_lim
+    umin = np.hstack([-ulim[0], -ulim[1], np.zeros(ny)])
+    umax = np.hstack([ulim[0], ulim[1], np.inf*np.ones(ny)])
     Vecr = mpc_params.V_ecr
 
 

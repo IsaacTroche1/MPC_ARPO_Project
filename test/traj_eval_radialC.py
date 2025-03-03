@@ -35,7 +35,7 @@ ry = 0
 xr = np.array([rx,ry,0.,0.])
 
 is_reject = True
-is_deltav = True
+is_deltav = False
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
 noises = None
@@ -51,6 +51,7 @@ v_ecr[-1] = 0
 horizons = {"Nx":40,
             "Nc":5,
             "Nb":5}
+ulim = (0.2, 0.2)
 
 #failsafe controller setup
 Q_failsafe = 0.005*np.diag([0.0001, 1, 100000., 1., 0.01])
@@ -59,7 +60,7 @@ C_refx = np.eye(1,4)
 
 #populate conditions
 sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_cont=cont_time_T, T_final=final_time, isDeltaV=is_deltav)
-mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons)
+mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons, ulim)
 debris = Debris(center, side_length, detect_dist)
 # debris = None
 fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
