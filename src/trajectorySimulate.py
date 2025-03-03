@@ -6,6 +6,7 @@ import math
 from scipy import sparse
 from numpy import random
 import control as ct
+from filterpy.kalman import UnscentedKalmanFilter, MerweScaledSigmaPoints
 from src.mpcsim import *
 from src.simhelpers import *
 
@@ -13,7 +14,7 @@ from src.simhelpers import *
 
 def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    # random.seed(123)
+    random.seed(124)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -101,7 +102,17 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     Ao = sp.linalg.block_diag(Ad.toarray(), Adi)
     Ao[0,4] = 1.
     Ao[1,5] = 1.
+    Bou = np.vstack([Bd.toarray(), np.zeros([2, 2])])
     Co = np.hstack([Cm, np.zeros([2,2])])
+
+    #Measurement and state transition model for kalman filter
+    def fx(x, u):
+        return Ao@x + Bou@u
+
+    def hx(x):
+        return Co@x
+
+    sig_points = MerweScaledSigmaPoints(6, alpha=0.1, beta=2., kappa=-1)
 
     # - input and state constraints
     C_11 = math.sin(phi+gam)/((rp-rtot)*math.sin(gam))
@@ -222,7 +233,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     #Intial conditions
     xtrue0 = x0
     xest0 = np.hstack([x0, 0., 0.]) #note this assumes we dont know the inital distrubance value (zeros)
-    Pest = 10*np.eye(nx+ndi)
+    Pest = sp.linalg.block_diag(0.1*np.eye(nx),100000*np.eye(ndi))
 
     # Simulate in closed loop
     nsim = nsimD
@@ -243,10 +254,18 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     noiseVec = sigMat@random.normal(0, 1, 4)
     noiseStored[:,0] = noiseVec
 
-    Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
     Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
-    Qw = np.diag([40*sigMat[0,0]**2, 40*sigMat[1,1]**2])
+    Qw = np.diag([sigMat[0,0]**2, sigMat[1,1]**2])
     Qw = Bnoise@Qw@np.transpose(Bnoise)
+    Qw[:4,:][:,:4] = 0.001*np.eye(nx)
+
+    # Setup UKF
+    kf = UnscentedKalmanFilter(dim_x=6, dim_z=2, dt=T, fx=fx, hx=hx, points=sig_points)
+    kf.x = xest0
+    kf.P = Pest
+    kf.R = np.zeros([nym, nym])
+    kf.Q = Qw
+
     for i in range(nsim):
 
         #Terminate sim conditions
@@ -292,12 +311,11 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
 
         #Measurement and state estimate
         if (noise is not None):
-            xnom = Ao@xestO[:,i] + Bou@ctrls[:,i]
-            Pest = Ao@Pest@np.transpose(Ao) + Qw
-            L = Pest@np.transpose(Co)@sp.linalg.inv(Co@Pest@np.transpose(Co))
             ymeas = Cm@xtrueP[:,i+1] # This may be a bug, try i + 1
-            xestO[:,i+1] = xnom + L@(ymeas - Co@xnom)
-            Pest = (np.eye(nx+ndi) - L@Co)@Pest
+            kf.predict(ctrls[:,i])
+            kf.update(z=ymeas)
+            xestO[:, i+1] = kf.x
+            pass
         else:
             xestO[:,i+1] = np.hstack([xtrueP[:,i+1], [0.,0.]])
 
