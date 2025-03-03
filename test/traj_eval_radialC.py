@@ -11,8 +11,8 @@ side_length = 5.
 detect_dist = 20
 
 #noise setup
-sig_x = 0.7
-sig_y = 0.7
+sig_x = 0.002
+sig_y = 0.002
 noise_length = 50
 
 #success conditions setup
@@ -67,21 +67,21 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
 # Actual simulation
-# sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
-# outfile = open('RunObjs/test_run_cont_non.pkl','wb')
-# pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris},outfile)
-# outfile.close()
+sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
+outfile = open('RunObjs/test_run_cont_non.pkl','wb')
+pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris},outfile)
+outfile.close()
 
-infile = open('RunObjs/Run0.pkl','rb')
+infile = open('RunObjs/test_run_cont_non.pkl','rb')
 objs = pkl.load(infile)
 obj1 = objs['simcond']
 obj2 = objs['simrun']
 obj3 = objs['debris']
 infile.close()
 
-# figurePlotSave(obj1, obj3, obj2)
+figurePlotSave(obj1, obj3, obj2)
 
-animateTrajectory(obj1, obj2, debris)
+# animateTrajectory(obj1, obj2, debris)
 
 # i = 0
 # direc = 'RunObjs/'
