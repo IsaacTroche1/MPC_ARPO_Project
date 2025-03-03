@@ -256,9 +256,9 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         x3p.plot(xTimeD, xestO[2, :itermD])
         x4p.plot(xTimeC, xtruePiece[3, :iterm + 1])
         x4p.plot(xTimeD, xestO[3, :itermD])
-        d1p.plot(xTimeC, noiseStored[0, :iterm])
+        d1p.plot(xTimeD, noiseStored[0, :itermD])
         d1p.plot(xTimeD, xestO[4, :itermD])
-        d2p.plot(xTimeC, noiseStored[1, :iterm])
+        d2p.plot(xTimeD, noiseStored[1, :itermD])
         d2p.plot(xTimeD, xestO[5, :itermD])
 
         estTrueStates.set_size_inches((7, 7.5))

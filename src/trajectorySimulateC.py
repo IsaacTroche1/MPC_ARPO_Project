@@ -6,6 +6,8 @@ import math
 from scipy import sparse
 from numpy import random
 import control as ct
+import filterpy as fp
+from filterpy.common import Q_discrete_white_noise
 from src.mpcsim import *
 from src.simhelpers import *
 
@@ -13,7 +15,7 @@ from src.simhelpers import *
 
 def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    # random.seed(123)
+    random.seed(123)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -47,7 +49,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     xTimeD = np.arange(0, time_final, T)
     xTimeC = np.arange(0, time_final, T_cont)
 
-    def stateEqn(t, x, u, noise_vec):
+    def stateEqn(t, x, u):
         Ap = np.array([
             [0., 0., 1., 0.],
             [0., 0., 0., 1.],
@@ -62,10 +64,10 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             [0., 1.],
         ])
 
-        dxdt = Ap@x + Bp@u + noise_vec
+        dxdt = Ap@x + Bp@u
         return dxdt
 
-    def stateEqnN(t, x, u, noise_vec):
+    def stateEqnN(t, x, u):
 
         # Orbital calcs for nonlinear plant (ASSUMES 500KM ALT. ORBIT)
         h = 500e+03
@@ -75,8 +77,8 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
         dxdt = [None] * 4
 
-        dxdt[0] = x[2] + noise_vec[0]
-        dxdt[1] = x[3] + noise_vec[1]
+        dxdt[0] = x[2]
+        dxdt[1] = x[3]
         dxdt[2] = 2 * n * x[3] + (n ** 2) * x[0] - (mu * (R_T + x[0])) / (((R_T + x[0]) ** 2 + x[1] ** 2) ** (3 / 2)) + mu / (R_T ** 2) + u[0]
         dxdt[3] = -2 * n * x[2] + (n ** 2) * x[1] - (mu * x[1]) / (((R_T + x[0]) ** 2 + x[1] ** 2) ** (3 / 2)) + u[1]
 
@@ -284,17 +286,20 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     #Set up continuous time noise
     Qcont = np.diag([sigMat[0,0]**2, sigMat[0,0]**2])
     noiseInterval = T*noiseRepeat
-    noiseTimes = np.arange(0, time_final, noiseRepeat)
+    noiseTimes = np.arange(0, time_final, noiseInterval)
     noiseIntC = int((noiseRepeat * T) / T_cont)
+    noiseIntD = int((noiseRepeat) / T)
     V = ct.white_noise(noiseTimes, Qcont, dt=0.001)
+    sum_vec = np.empty([nx,nsimD])
     j = 0
     for col in V.T:
         noiseStored[:, j * noiseIntC:noiseIntC * (1 + j)] = np.vstack([col.reshape(ndi, 1),np.zeros([2,1])])
+        sum_vec[:, j * noiseRepeat:noiseRepeat * (1 + j)] = int(T/T_cont)*np.concatenate([col,np.zeros(2)]).reshape(-1,1)
         j += 1
 
     Bou = np.vstack([Bd.toarray(), np.zeros([2,2])])
-    Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat)*np.eye(ndi)]) #try with T*eye
-    Qw = np.diag([40*sigMat[0,0]**2, 40*sigMat[1,1]**2])
+    Bnoise = np.vstack([np.zeros([nx,ndi]), (T*noiseRepeat*500)*np.eye(ndi)]) #try with T*eye
+    Qw = np.diag([400*sigMat[0,0]**2, 400*sigMat[1,1]**2])
     Qw = Bnoise@Qw@np.transpose(Bnoise)
 
     # Qw = integrateNoise(Ap,Bnoise, Qw, T)
@@ -346,8 +351,8 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             ctrl = ctrls[:,i]
             ctrls[:,i+1] = ctrl
 
-        soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i], noiseStored[:,i]))
-        xtrueP[:,i+1] = soln.y[:,-1]
+        soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
+        xtrueP[:,i+1] = soln.y[:,-1] + noiseStored[:,i]
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
         if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
@@ -412,5 +417,5 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         controllerSeq[i] = 3
     controllerSeq[-1] = controllerSeq[-2]
 
-    sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, noiseStored)
+    sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, sum_vec)
     return sim_run
