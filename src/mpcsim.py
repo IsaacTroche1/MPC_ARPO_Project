@@ -266,7 +266,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
 
         x1p.title.set_text('True and Estimated States (LVLH)')
         x1p.set_ylabel('$\mathregular{\delta}$x (m)')
-        x1p.legend(['True','Estimated'], loc='upper right')
+        x1p.legend(['Ground Truth','Estimated'], loc='upper right')
         x1p.xaxis.set_visible(False)
         x2p.set_ylabel('$\mathregular{\delta}$y (m)')
         x2p.xaxis.set_visible(False)
