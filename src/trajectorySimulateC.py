@@ -15,7 +15,7 @@ from src.simhelpers import *
 
 def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    random.seed(123)
+    # random.seed(123)
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -351,7 +351,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             ctrl = ctrls[:,i]
             ctrls[:,i+1] = ctrl
 
-        soln = sp.integrate.solve_ivp(stateEqn, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
+        soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
         xtrueP[:,i+1] = soln.y[:,-1] + noiseStored[:,i]
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
