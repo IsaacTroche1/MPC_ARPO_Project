@@ -320,7 +320,6 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
             kf.predict(ctrls[:,i])
             kf.update(z=ymeas)
             xestO[:, i+1] = kf.x
-            pass
         else:
             xestO[:,i+1] = np.hstack([xtrueP[:,i+1], [0.,0.]])
 
