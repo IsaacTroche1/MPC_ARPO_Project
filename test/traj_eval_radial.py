@@ -24,8 +24,8 @@ tolerance_radius = 1.5
 los_angle = 10*(np.pi/180)
 mean_motion = 1.107e-3
 sample_time = 0.5
-in_track = False
-x0 = np.array([100.,10.,0.,0])
+in_track = True
+x0 = np.array([10.,100.,0.,0])
 rx = platform_radius
 ry = 0
 xr = np.array([rx,ry,0.,0.])
@@ -34,7 +34,7 @@ is_reject = True
 is_deltav = False
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
-# noises = None
+noises = None
 
 #MPC controller setup
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
@@ -58,7 +58,7 @@ C_refx = np.eye(1,4)
 sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_final=150, isDeltaV=is_deltav)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons, ulim)
 debris = Debris(center, side_length, detect_dist)
-#debris = None
+debris = None
 fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
