@@ -205,13 +205,13 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
             geoConp.legend(['Constraints', 'Trajectory'], loc='upper right', prop={'size': 5})
 
     velConp.set_xlabel('Relative Position L1 Norm (m)')
-    velConp.set_ylabel('Relative Position L1 Norm (m)')
+    velConp.set_ylabel('Relative Velocity L1 Norm (m/s)')
     velConp.plot(np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry),
                  np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry), color='#994F00',
                  label='_nolegend_')
     velConp.plot(np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry),
                  np.reshape(xv1n[:iterm], iterm), color='b', label='Relative Velocity L1 Norm')
-    velConp.legend(['Relative Velocity L1 Norm (m/s)'], loc='upper left', prop={'size': 5})
+    # velConp.legend(['Relative Velocity L1 Norm (m/s)'], loc='upper left', prop={'size': 5})
 
     if (sim_conditions.noise is None):
         estTrueStates = plt.figure(2)
