@@ -200,9 +200,9 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         geoConp.legend(customLines, ['MPC Controller', 'LQR Failsafe', 'LQR Debris Avoidance'], loc='lower right', prop={'size': 5})
     else:
         if (not sim_conditions.inTrack):
-            geoConp.legend(['Constraints', 'Trajectory'], loc='lower right', prop={'size': 5})
+            geoConp.legend(['Constraints', 'Trajectory'], loc='lower left', prop={'size': 6.5})
         else:
-            geoConp.legend(['Constraints', 'Trajectory'], loc='upper right', prop={'size': 5})
+            geoConp.legend(['Constraints', 'Trajectory'], loc='upper left', prop={'size': 6.5})
 
     velConp.set_xlabel('Relative Position L1 Norm (m)')
     velConp.set_ylabel('Relative Velocity L1 Norm (m/s)')

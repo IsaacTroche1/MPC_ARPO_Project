@@ -140,18 +140,28 @@ x3p = plt.subplot2grid((4, 3), (2, 0), rowspan=1, colspan=3)
 x4p = plt.subplot2grid((4, 3), (3, 0), rowspan=1, colspan=3)
 
 x1p.plot(xTimeD, x_valsD[0,:])
-x1p.plot(xTimeC, x_valsC[0,:])
+x1p.plot(xTimeC, x_valsC[0,:],'--')
 x1p.title.set_text('States')
 x1p.legend(['Discrete', 'Continuous'])
 
 x2p.plot(xTimeD, x_valsD[1,:])
-x2p.plot(xTimeC, x_valsC[1,:])
+x2p.plot(xTimeC, x_valsC[1,:],'--')
 
 x3p.plot(xTimeD, x_valsD[2,:])
-x3p.plot(xTimeC, x_valsC[2,:])
+x3p.plot(xTimeC, x_valsC[2,:],'--')
 
 x4p.plot(xTimeD, x_valsD[3,:])
-x4p.plot(xTimeC, x_valsC[3,:])
+x4p.plot(xTimeC, x_valsC[3,:],'--')
+
+x1p.title.set_text('Discrete and Continuous Time States')
+x1p.set_ylabel('$\mathregular{\delta}$x (m)')
+x1p.xaxis.set_visible(False)
+x2p.set_ylabel('$\mathregular{\delta}$y (m)')
+x2p.xaxis.set_visible(False)
+x3p.set_ylabel('$\mathregular{\delta\dot{x}}$ (m/s)')
+x3p.xaxis.set_visible(False)
+x4p.set_ylabel('$\mathregular{\delta\dot{y}}$ (m/s)')
+x4p.set_xlabel('Time (s)')
 
 plt.figure(2)
 u1p = plt.subplot2grid((2, 3), (0, 0), rowspan=1, colspan=3)
@@ -163,6 +173,11 @@ u1p.title.set_text('Inputs')
 u1p.legend(['Discrete','Continuous'])
 u2p.plot(xTimeD, ctrlD[1,:])
 u2p.plot(xTimeC, ctrlC[1,:])
+
+u1p.title.set_text('Discrete and Continuous Commands')
+u1p.set_ylabel('$\mathregular{u_x}$ $\mathregular{(m/s^2)}$')
+u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s^2)}$')
+u2p.set_xlabel('Time (s)')
 
 plt.show()
 
