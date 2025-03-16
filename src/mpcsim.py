@@ -16,7 +16,7 @@ class Noise:
 
 
 class SimConditions:
-    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False, T_cont:float=float('nan'), T_final:int=100):
+    def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False, T_cont:float=float('nan'), T_final:int=100, isDeltaV:bool=False):
         self.x0 = x0
         self.xr = xr
         self.r_p = r_p
@@ -31,6 +31,7 @@ class SimConditions:
         self.inTrack = inTrack
         self.T_cont = T_cont
         self.T_final = T_final
+        self.isDeltaV = isDeltaV
 
 class SimRun:
     def __init__(self, i_term:int, isSuccess:bool, x_true_pcw, x_est, ctrl_hist, ctrlr_seq, noise_hist):
@@ -57,7 +58,7 @@ class Debris:
 
 
 class MPCParams:
-    def __init__(self, Q_state, R_input, R_slack, V_ecr, horizons, swap_xy:bool=False):
+    def __init__(self, Q_state, R_input, R_slack, V_ecr, horizons, u_lim:Tuple[float,float], swap_xy:bool=False):
         self.Q_state = Q_state
         self.R_input = R_input
         if (swap_xy):
@@ -72,6 +73,7 @@ class MPCParams:
         self.Nx = horizons["Nx"]
         self.Nc = horizons["Nc"]
         self.Nb = horizons["Nb"]
+        self.u_lim = u_lim
 
 
 class FailsafeParams:
@@ -203,13 +205,13 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
             geoConp.legend(['Constraints', 'Trajectory'], loc='upper right', prop={'size': 5})
 
     velConp.set_xlabel('Relative Position L1 Norm (m)')
-    velConp.set_ylabel('Relative Position L1 Norm (m)')
+    velConp.set_ylabel('Relative Velocity L1 Norm (m/s)')
     velConp.plot(np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry),
                  np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry), color='#994F00',
                  label='_nolegend_')
     velConp.plot(np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry),
                  np.reshape(xv1n[:iterm], iterm), color='b', label='Relative Velocity L1 Norm')
-    velConp.legend(['Relative Velocity L1 Norm (m/s)'], loc='upper left', prop={'size': 5})
+    # velConp.legend(['Relative Velocity L1 Norm (m/s)'], loc='upper left', prop={'size': 5})
 
     if (sim_conditions.noise is None):
         estTrueStates = plt.figure(2)
@@ -288,9 +290,14 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     u1p.plot(uTime, ctrls[0, :iterm])
     u2p.plot(uTime, ctrls[1, :iterm])
 
-    u1p.title.set_text('Actuator Commands (LVLH)')
-    u1p.set_ylabel('$\mathregular{u_x}$ $\mathregular{(m/s^2)}$')
-    u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s^2)}$')
+    if (not sim_conditions.isDeltaV):
+        u1p.title.set_text('Actuator Commands (LVLH)')
+        u1p.set_ylabel('$\mathregular{u_x}$ $\mathregular{(m/s^2)}$')
+        u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s^2)}$')
+    else:
+        u1p.title.set_text('Actuator Commands (LVLH)')
+        u1p.set_ylabel('$\mathregular{u_x}$ $\mathregular{(m/s)}$')
+        u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s)}$')
     u2p.set_xlabel('Time (s)')
 
     if saveCounter != None:
