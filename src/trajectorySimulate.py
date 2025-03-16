@@ -17,6 +17,7 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     random.seed(124)
 
     isReject = sim_conditions.isReject
+    isDeltaV = sim_conditions.isDeltaV
     inTrack = sim_conditions.inTrack
     distTol = sim_conditions.suc_cond[0]
     angTol = sim_conditions.suc_cond[1]
@@ -96,7 +97,10 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
     for (i,j), func_ij in np.ndenumerate(eAx):
         func = sy.lambdify((x),func_ij)
         eAxInt[i,j] = sp.integrate.quad(func,0.,T)[0]
-    Bd = sparse.csc_matrix(eAxInt@Bp)
+    if not isDeltaV:
+        Bd = sparse.csc_matrix(eAxInt@Bp)
+    else:
+        Bd = sparse.csc_matrix(Ad@np.vstack([np.zeros([2,2]),np.eye(2)]))
 
     #Observer and dynamic systems
     Ao = sp.linalg.block_diag(Ad.toarray(), Adi)
@@ -145,8 +149,9 @@ def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_
 
 
     # Constraints
-    umin = np.hstack([-0.2, -0.2, np.zeros(ny)])
-    umax = np.hstack([0.2, 0.2, np.inf*np.ones(ny)])
+    ulim = mpc_params.u_lim
+    umin = np.hstack([-ulim[0], -ulim[1], np.zeros(ny)])
+    umax = np.hstack([ulim[0], ulim[1], np.inf*np.ones(ny)])
     Vecr = mpc_params.V_ecr
 
 
