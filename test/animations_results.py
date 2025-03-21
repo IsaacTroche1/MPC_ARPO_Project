@@ -1,4 +1,6 @@
-
+r"""
+Simple script to generate animations from pickled sim runs in test\\RunObjs
+"""
 
 from src.mpcsim import *
 from src.trajectorySimulate import trajectorySimulate

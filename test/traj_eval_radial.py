@@ -1,24 +1,34 @@
+r"""
+This script is my playground for generating/tuning DISCRETE-TIME trajectories WITH RADIAL ICs.
+It can definitely be structured better.
+
+To generate trajectories continuously (as the process is fairly slow), I save the labeled figures in test\\RunFigs
+and pickle the corresponding objects in test\\RunObjs.
+
+Useful as a general template.
+"""
+
 from src.mpcsim import *
 from src.trajectorySimulate import trajectorySimulate
 from src.animateTrajectory import animateTrajectory
 from scipy import sparse
 import pickle as pkl
 
-#debris setup
+# Debris definition
 center = (40.,0.)
 side_length = 5.
 detect_dist = 20
 
-#noise setup
+# Noise definition
 sig_x = 0.75
 sig_y = 0.75
 noise_length = 50
 
-#success conditions setup
-distance_tolerance = 0.2
-ang_tolerance = 45
+# Success conditions definition
+distance_tolerance = 0.2    # Meters
+ang_tolerance = 45  # Radians
 
-#general sim setup
+# General sim conditions definition
 platform_radius = 2.5
 tolerance_radius = 1.5
 los_angle = 10*(np.pi/180)
@@ -36,10 +46,10 @@ success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
 # noises = None
 
-#MPC controller setup
+# MPC controller parameters
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
 R_mpc = 1000**2*sparse.diags([1, 1])
-R_mpc_s = 5**2*sparse.eye(5)  #make argument programmatic
+R_mpc_s = 5**2*sparse.eye(5)
 ECRscale = 50000
 v_ecr = ECRscale*np.ones(5) #0 for hard constraints
 v_ecr[-2] = -1*v_ecr[-2]
@@ -49,12 +59,12 @@ horizons = {"Nx":40,
             "Nb":5}
 ulim = (0.2, 0.2)
 
-#failsafe controller setup
+# LQR failsafe controller parameters
 Q_failsafe = 0.005*np.diag([0.0001, 1, 100000., 1., 0.01])
 R_failsafe = 100*np.diag([1, 1])
 C_refx = np.eye(1,4)
 
-#populate conditions
+# Populate parameter objects
 sim_conditions = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, is_reject, success_cond, noises, in_track, T_final=150, isDeltaV=is_deltav)
 mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons, ulim)
 debris = Debris(center, side_length, detect_dist)
@@ -64,7 +74,7 @@ fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
 
 
 
-#Actual simulation
+# Run simulations
 sim_run_test = trajectorySimulate(sim_conditions, mpc_params, fail_params, debris)
 figurePlotSave(sim_conditions, debris, sim_run_test)
 # outfile = open('RunObjs/test_run0.pkl','wb')
@@ -79,7 +89,8 @@ figurePlotSave(sim_conditions, debris, sim_run_test)
 #
 animateTrajectory(sim_conditions, sim_run_test, debris)
 
-# i = 1777 #set back 0
+# Loop for generating and saving trajectories for later
+# i = 0
 # direc = 'RunObjs/'
 # filename = 'Run'
 # while (True):
