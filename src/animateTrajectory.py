@@ -1,23 +1,41 @@
-import math
-from vpython import *
-import numpy as np
-from src.mpcsim import *
-import pickle
+"""
+This function utilizes Vpython to create a low-fidelity animation of a given simulation run.
 
+The target orbit is modeled in 3D, with the chaser relative position being updated using the relative state information
+from the simulation.
+
+All quantities represented are transformed into the ECI frame.
+
+Disturbances are represented by green arrows centered around the target platform.
+"""
+
+from vpython import *
+
+from src.mpcsim import *
 
 def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debris=None):
+    """
+    Animate a trajectory in Vpython
 
+    :param sim_conditions: A SimConditions object representing general simulation conditions for the desired animation
+    :param debris: A Debris object containing information describing the debris avoided during the given simulation
+    :param sim_run: A SimRun object with the necessary telemetry from the given simulation
+    :return:
+    """
+
+    # Unpack SimRun object
     xk = sim_run.x_true_pcw
     ctrls =  sim_run.ctrl_hist
     controllerSeq = sim_run.ctrlr_seq
     disturbs = sim_run.noise_hist #use noiseHist for saved runs 50 and 495
 
+    # Helper function to color control vectors according to controller used at time step
     def colorNumToObj(num):
-        if (num == 1 or num == 0): #MPC
+        if (num == 1 or num == 0):  #MPC
             colVec = vector(0,0,1)
-        elif (num == 2): #LQR Failsafe
+        elif (num == 2):    #LQR Failsafe
             colVec = vector(1,0,0)
-        elif (num == 3): #Debris Avoid
+        elif (num == 3):    #Debris Avoid
             colVec = vector(1,1,0)
         return colVec
 
@@ -47,7 +65,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     scene.userPan = False
     scene.autoscale = False
 
-    #Animation constants
+    # Orbit animation constants
     rE = 6371e+03
     h = 500000
     platWidth = 1.5
@@ -55,13 +73,13 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     n = sim_conditions.mean_mtn
     Vplat_mag = (rE+h)*n
 
-    #Debris
+    # Setup debris
     if (debris is not None):
         center = debris.center
         sideLength = debris.side_length
 
 
-    #Simulation Constants
+    # Unpack simulation conditions
     gam = sim_conditions.los_ang
     rp = sim_conditions.r_p
     rtot = sim_conditions.r_tol
@@ -72,7 +90,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     else:
         dt = sim_conditions.T_cont
 
-    #Animated constraints
+    # Animated constraints
     xInt = 0.1
     if (sim_conditions.inTrack):
         xSampsU = np.arange(-20, 0 + xInt, xInt)
@@ -87,6 +105,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     inputScale = 50
     disturbScale = 50
 
+    # Acceleration vector calcs for target orbit
     def acceleration(targ,earth):
         rrel = targ.pos - earth.pos
         rrel_hat = rrel/mag(rrel)
@@ -94,6 +113,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
         acelVec = -amag*rrel_hat
         return acelVec
 
+    # Object initializations
     Earth = sphere(pos = vector(0,0,0), radius = (rE), color = color.blue, velocity = vector(0,0,0), make_trail = False)
     Earth.visible = True
     target = cylinder(pos = vector(rE+h, 0, -platWidth/2), axis = vector(0, 0, 1), radius = rp, length = platWidth, color = color.gray(0.5), velocity = vector(0, Vplat_mag, 0), make_trail = True)
@@ -126,6 +146,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
 
     time = 0
 
+    # Camera setup
     posOrth = vector(-target.pos.y, target.pos.x, 0)
     scene.camera.follow(chaser)
     scene.camera.rotate(5, posOrth, target.pos)
@@ -134,6 +155,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     scene.range = 30
     scene.up = vector(0,0,1)
 
+    # Animation loop
     thetaTarg = 0
     thetaPlat = 0
     for i in range(1,nanim):
@@ -145,9 +167,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
             scene.caption = '<b>Using controller: LQR Failsafe</b>'
         elif (controllerSeq[i] == 3):
             scene.caption = '<b>Using controller: Deadbeat Collision Avoidance</b>'
-        
-        # uxplot.plot(time, ctrls[0,i])
-        # uyplot.plot(time, ctrls[1,i])
+
         uxplot.plot(time, forceTotal_eci.x)
         uyplot.plot(time, forceTotal_eci.y)
 
@@ -155,14 +175,14 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
             dxplot.plot(time, distTotal_eci.x)
             dyplot.plot(time, distTotal_eci.y)
 
-
+        # Rotate constraints
         target.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = target.pos)
         yConeUpper.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = target.pos)
         yConeLower.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = target.pos)
         if (debris is not None):
             debris.rotate(angle = thetaPlat, axis = vector(0,0,1), origin = debris.pos)
 
-
+        # Update target orbit
         target.acceleration = acceleration(target, Earth)
         target.velocity = target.velocity + target.acceleration*dt
         target.pos = target.pos + target.velocity*dt
@@ -170,15 +190,18 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
         yConeUpper.pos = target.pos
         yConeLower.pos = target.pos
 
+        # Rotate debris
         rotMat = np.array([[math.cos(thetaTarg + np.pi), -math.sin(thetaTarg + np.pi)],[math.sin(thetaTarg + np.pi),math.cos(thetaTarg + np.pi)]])
         if (debris is not None):
             rDeb_eci = rotMat@center
             debris.pos = target.pos + vector(rDeb_eci[0], rDeb_eci[1],0)
 
+        # Update chaser position
         rChase_eci = rotate(vector(xk[0,i], xk[1,i], 0), angle = np.pi + thetaTarg, axis = vector(0,0,1))
         chaser.pos = target.pos + rChase_eci
         chaser.make_trail = True
 
+        # Update input arrows
         forceXc = vector(ctrls[0,i],0,0)
         forceYc = vector(0,ctrls[1,i],0)
         forceXeci = rotate(forceXc, angle = np.pi + thetaTarg, axis = vector(0,0,1))
@@ -190,7 +213,8 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
         inputY.axis = inputScale*vector(0,forceTotal_eci.y,0)
         inputX.color = colorNumToObj(controllerSeq[i])
         inputY.color = colorNumToObj(controllerSeq[i])
-        
+
+        # Update disturbance arrows
         if (disturbs.shape[0] != 0):
             distXc = vector(disturbs[0,i],0,0)
             distYc = vector(0,disturbs[1,i],0)
@@ -202,21 +226,11 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
             distX.axis = disturbScale*vector(distTotal_eci.x,0,0)
             distY.axis = disturbScale*vector(0,distTotal_eci.y,0)
 
+        # Update true anomaly
         thetaTarg = math.atan2(target.pos.y,target.pos.x)
         thetaPlat = n*dt
-        #print("Target anomaly = %f, time = %f" % (thetaTarg*(180/np.pi), time))
-        
+
+        # Rotate camera
         scene.camera.rotate(thetaPlat, target.axis, target.pos)
 
         time = time + dt
-
-#Testing area for debugging
-# center = (40,0)
-# side_length = 5
-# debris = Debris(center,side_length)
-#
-# infile = open('saved_runs/Run495.pkl','rb')
-# test_run = pickle.load(infile)
-# infile.close()
-#
-# animateTrajectory(test_run, debris)

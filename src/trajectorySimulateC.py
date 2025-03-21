@@ -1,20 +1,31 @@
-import osqp
-import numpy as np
-import scipy as sp
+"""
+This function performs trajectory simulation using an MPC controller on the CONTINUOUS-TIME, NONLINEAR
+equations of relative motion.
+
+Further documentation describing these objects can be found in the module src.mpcsim
+
+The function utilizes a small selection of helpers to aid readability/conciseness.
+These can be found in the module src.simhelpers
+"""
+
 import sympy as sy
-import math
-from scipy import sparse
-from numpy import random
-import control as ct
+import osqp
 from filterpy.kalman import UnscentedKalmanFilter, MerweScaledSigmaPoints
-from src.mpcsim import *
+
 from src.simhelpers import *
 
-
-
 def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
+    """
+    Performs continuous-time nonlinear simulation
 
-    # random.seed(124)
+    :param sim_conditions: A SimConditions object representing general simulation conditions (initial state, orbital parameters, etc.)
+    :param mpc_params: An MPCParams object containing the tunable parameters of the MPC controller to be used during simulation
+    :param fail_params: A FailsafeParams object containing the tunable parameters of the failsafe controllers to be during simulation
+    :param debris: A Debris object containing information describing the debris to be avoided by the control algorithm during simulation
+    :return: A SimRun object with the necessary telemetry for data reduction and visualization/animation
+    """
+
+    # random.seed(123) # Uncomment for repeatable behavior
 
     isReject = sim_conditions.isReject
     inTrack = sim_conditions.inTrack
@@ -23,7 +34,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     angTol = sim_conditions.suc_cond[1]
     noise = sim_conditions.noise
 
-    #Noise characteristics
+    # Noise characteristics
     if noise is not None:
         sigMat = sim_conditions.noise.constructSigMat()
         noiseRepeat = sim_conditions.noise.noise_length
@@ -32,7 +43,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         noiseRepeat = 1
 
 
-    #Simulation Constants
+    # Simulation Constants
     gam = sim_conditions.los_ang
     rp = sim_conditions.r_p
     rtot = sim_conditions.r_tol
@@ -40,7 +51,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     n = sim_conditions.mean_mtn
     T = sim_conditions.time_stp
 
-    #Contiuous time simulation setup
+    # Continuous-time simulation setup
     T_cont = sim_conditions.T_cont
     time_final = sim_conditions.T_final
     nsimD = int(time_final / T)
@@ -49,24 +60,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     xTimeD = np.arange(0, time_final, T)
     xTimeC = np.arange(0, time_final, T_cont)
 
-    def stateEqn(t, x, u):
-        Ap = np.array([
-            [0., 0., 1., 0.],
-            [0., 0., 0., 1.],
-            [3 * n ** 2, 0., 0., 2 * n],
-            [0., 0., -2 * n, 0.],
-        ])
-
-        Bp = np.array([
-            [0., 0.],
-            [0., 0.],
-            [1., 0.],
-            [0., 1.],
-        ])
-
-        dxdt = Ap@x + Bp@u
-        return dxdt
-
+    # Function containing state equation for nonlinear plant, to be integrated with RK45
     def stateEqnN(t, x, u):
 
         # Orbital calcs for nonlinear plant (ASSUMES 500KM ALT. ORBIT)
@@ -88,6 +82,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     x0 = sim_conditions.x0
     xr = sim_conditions.xr
 
+    # Debris setup
     if debris is not None:
         #Debris bounding box
         sqVerts = debris.constructVertArr()
@@ -101,7 +96,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         sideLength = 0
         hasDebris = False
 
-    # Discrete time model of a quadcopter
+    # Continuous-time linear CW equations
     Ap = np.array([
     [0.,      0.,     1., 0.],
     [0.,      0.,     0., 1.],
@@ -128,12 +123,11 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     [nx, nu] = Bp.shape
     nym = Cm.shape[0]
 
-    #Discretize
+    # Discretize
     Ad = sparse.csc_matrix(sp.linalg.expm(Ap*T))
     x = sy.symbols('x')
     Ax = sy.Matrix(Ap)*x
     eAx = Ax.exp()
-    #eAxF = sy.lambdify((x),eAx)
     eAxInt = np.empty([Ap.shape[0],Ap.shape[0]])
     for (i,j), func_ij in np.ndenumerate(eAx):
         func = sy.lambdify((x),func_ij)
@@ -143,14 +137,14 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     else:
         Bd = sparse.csc_matrix(Ad @ np.vstack([np.zeros([2, 2]), np.eye(2)]))
 
-    #Observer and dynamic systems
+    # State observer system for disturbance estimation
     Ao = sp.linalg.block_diag(Ad.toarray(), Adi)
     Ao[0,4] = 1.
     Ao[1,5] = 1.
     Bou = np.vstack([Bd.toarray(), np.zeros([2, 2])])
     Co = np.hstack([Cm, np.zeros([2,2])])
 
-    # Measurement and state transition model for kalman filter
+    # Measurement and state transition model for unscented kalman filter
     def fx(x, u):
         return Ao @ x + Bou @ u
 
@@ -162,7 +156,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
     sig_points = MerweScaledSigmaPoints(6, alpha=0.1, beta=2., kappa=-1)
 
-    # - input and state constraints
+    # - Define initial state constraints
     C_11 = math.sin(phi+gam)/((rp-rtot)*math.sin(gam))
     C_12 = -math.cos(phi+gam)/((rp-rtot)*math.sin(gam))
     C_21 = -math.sin(phi-gam)/((rp-rtot)*math.sin(gam))
@@ -189,7 +183,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     ny = C.shape[0]
 
 
-    # Constraints
+    # Define input constraints
     ulim = mpc_params.u_lim
     umin = np.hstack([-ulim[0], -ulim[1], np.zeros(ny)])
     umax = np.hstack([ulim[0], ulim[1], np.inf * np.ones(ny)])
@@ -198,18 +192,18 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
     D = np.hstack([np.zeros([ny,nu]),np.diag(Vecr)])
 
-    # Objective function
+    # State and input penalty matrices for MPC formulation
     Q = mpc_params.Q_state
     Ru = mpc_params.R_input
     Rs = mpc_params.R_slack
     R = sparse.block_diag([Ru,Rs])
 
-    #Virtual LQR Controller
+    # Virtual LQR Controller for stabilization
     S = sp.linalg.solve_discrete_are(Ad.toarray(), Bd.toarray(), Q.toarray(), Ru.toarray())
     K = np.asarray(np.linalg.inv(Ru + np.transpose(Bd)@S@Bd)@(np.transpose(Bd)@S@Ad))
     QN = S
 
-    #LQR Failsafe
+    # LQR Failsafe (homing controller)
     Qf = fail_params.Q_fail
     Rf = fail_params.R_fail
     Crefx = fail_params.C_int
@@ -219,7 +213,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     Kpf = Kf[:,:nx]
     Kif = Kf[:,nx:nx+nr]
 
-    #Deadbeat Debris Avoidance
+    # Deadbeat debris avoidance maneuver
     Crefy = np.array([[0.,1.,0.,0.]])
     Bd_prune = np.reshape(Bd[:, 1], (nx, 1))[[1, 3],]
     Ad_prune = Ad[[1, 3], :][:, [1, 3]]
@@ -230,33 +224,31 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     des_eig = np.array([0, 0, 0])
     K_prune = ct.acker(A_aug, B_aug, des_eig)
 
-    act_eigs = np.linalg.eigvals(A_aug - B_aug @ K_prune)
-
     K_total = np.zeros([nu, nx])
     K_total[1, 1] = K_prune[0, 0]
     K_total[1, 3] = K_prune[0, 1]
     K_i = np.vstack([0, K_prune[0, 2]])
 
-
+    # For debugging
     if ~(np.all(np.linalg.eigvals(S) > 0)):
         raise Exception("Riccati solution not positive definite")
 
 
-    # Horizons
+    # MPC horizons
     Nx = mpc_params.Nx
     Nc = mpc_params.Nc
     Nb = mpc_params.Nb
 
-    # - quadratic objective
+    # Quadratic objective for QP problem
     P = sparse.block_diag([sparse.kron(sparse.eye(Nx), Q), QN, sparse.kron(sparse.eye(Nc), R), 1*sparse.eye(ndi)], format='csc')
-    # - linear objective
+    # Linear objective for QP problem
     q = np.hstack([np.kron(np.ones(Nx), -Q@xr), -QN@xr, np.zeros(Nc*(nu+ny)), np.zeros(ndi)])
-    # - linear dynamics
+    # Linear dynamics constraint for QP problem
     Aeq = constructOsqpAeq(mpc_params, Ad, Bd, K, ny)
     leq = np.hstack([-x0, np.zeros(Nx*nx)])
     ueq = leq
 
-
+    # Initialize state and input constraints for QP problem
     Aineq2 = sparse.kron(sparse.eye(Nc), sparse.eye(nu+ny))
     Block12 = sparse.vstack([np.kron(np.eye(Nc),D), np.kron(np.zeros([(Nx+1)-Nc,Nc]),np.zeros([ny,nu+ny]))])
     Block21 = sparse.coo_matrix((Nc*(nu+ny),(Nx+1)*nx))
@@ -279,12 +271,12 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     #Setup workspace
     prob.setup(P, q, A, l, u, warm_start=True, verbose = False)
 
-    #Intial conditions
+    # Initial conditions for simulation telemetry
     xtrue0 = x0
     xest0 = np.hstack([x0, 0., 0.]) #note this assumes we dont know the inital distrubance value (zeros)
     Pest = sp.linalg.block_diag(1e-20*np.eye(nx),np.eye(ndi))
 
-    # Simulate in closed loop
+    # This is just a mess :( TODO refactor
     iterm = nsimC
     ifailsd = []
     ifailsf = []
@@ -300,7 +292,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     xtrueP[:,:int(T/T_cont)+1] = np.kron(np.ones([1,int(T/T_cont)+1]),xtrue0.reshape(-1,1))
     xestO[:,0] = xest0
 
-    #Set up continuous time noise
+    # Continuous-time noise covariance setup
     Qcont = np.diag([sigMat[0,0]**2, sigMat[0,0]**2])
     noiseInterval = T*noiseRepeat
     noiseTimes = np.arange(0, time_final, noiseInterval)
@@ -327,11 +319,12 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
     kf.R = np.zeros([nym, nym])
     kf.Q = Qw
 
+    # Closed-loop simulation
     disc_j = 1
     time = T
     for i in range(500, nsimC-1):
 
-        #Terminate sim conditions
+        #Terminate simulation conditions
         if (not inTrack and (np.linalg.norm(xtrueP[0:2,i]) < rp or xtrueP[0,i] < rp - rtot)):
             iterm = i
             break
@@ -339,29 +332,30 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             iterm = i
             break
 
-        if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
+        if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):    #Really crappy sample and hold
 
-            # Solve
+            # Attempt to solve QP problem
             res = prob.solve()
 
-            #Check solver status
+            # Check solver status to determine action
             if res.info.status != 'solved':
                 if (xestO[0,disc_j-1] - (center[0] + sideLength/2) < 0 and xestO[0,disc_j-1] - (center[0] - sideLength/2) > 0 and xestO[1,disc_j-1] < (center[1] + sideLength/2) and xestO[1,disc_j-1] > (center[1] - sideLength/2)):
+                    # Use deadbeat collision avoidance
                     ifailsd.append(i)
-                    #break
                     xintf = xintf + Crefy@xestO[:4,disc_j-1] - (center[1] + sideLength/2) #theres a potential bug here with the sign of the control, test in animation
                     ctrl = -K_total@xestO[:4,disc_j-1] - K_i@xintf
                 else:
+                    # Use failsafe (homing) controller
                     ifailsf.append(i)
-                    #break
                     xintf = xintf + Crefx@xestO[:4,disc_j-1] - xr[0]
                     ctrl = -Kpf@xestO[:4,disc_j-1] - Kif@xintf
             else:
+                # Use MPC controller
                 impc.append(i)
                 xintf = 0
                 ctrl = res.x[(Nx+1)*nx:(Nx+1)*nx+nu]
 
-            #Scale input if excees max/min
+            #Scale input if desired exceeds max/min
             if (np.linalg.norm(ctrl) > umax[0]):
                 ctrl[0] = ctrl[0]*(umax[0]/np.linalg.norm(ctrl))
                 ctrl[1] = ctrl[1]*(umax[0]/np.linalg.norm(ctrl))
@@ -374,6 +368,7 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             ctrl = ctrls[:,i]
             ctrls[:,i+1] = ctrl
 
+        #Handle delta-v and acceleration input models
         if (not isDeltaV):
             soln = sp.integrate.solve_ivp(stateEqnN, (time, time + T_cont), xtrueP[:, i], args=(ctrls[:, i],))
             xtrueP[:,i+1] = soln.y[:,-1] + noiseStored[:,i]
@@ -386,8 +381,8 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
 
         xv1n[0,i+1] = np.absolute(xtrueP[2,i+1]) + np.absolute(xtrueP[3,i+1])
 
-        if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):
-            # Measurement and state estimate
+        if ((disc_j < nsimD) and (xTimeC[i] == xTimeD[disc_j])):    # Really crappy sample and hold
+            # Measurement and state estimation
             if (noise is not None):
                 ymeas = np.empty(nym)
                 ymeas[0] = np.linalg.norm(xtrueP[:2, i+1])
@@ -398,13 +393,12 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             else:
                 xestO[:,disc_j] = np.hstack([xtrueP[:,i+1], [0., 0.]])
 
-            # Update initial state
-            # also need to change to estimated state
+            # Update initial state in QP problem
             l[:nx] = -xestO[:4, disc_j]
             u[:nx] = -xestO[:4, disc_j]
             prob.update(l=l, u=u)
 
-            # Reconfigure velocity constraint
+            # Reconfigure constraints
             A, lineq, uineq = configureDynamicConstraints(sim_conditions, mpc_params, debris, xestO[:, disc_j], block_mats, u_lim)
             l[(Nx + 1) * nx:] = lineq
             u[(Nx + 1) * nx:] = uineq
@@ -416,19 +410,19 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
         # print(time)
     continuousAppendIndex(impc, ifailsf, ifailsd, i + 1)
 
-    #Construct piecewise trajectory
+    # Construct piecewise trajectory (based on controller used)
     xtruePiece = np.empty([nx,iterm])
     xtruePiece[:,:int(T/T_cont)+1] = xtrueP[:,:int(T/T_cont)+1]
     xtruePiece[:,impc] = xtrueP[:,impc]
     xtruePiece[:,ifailsf] = xtrueP[:,ifailsf]
     xtruePiece[:,ifailsd] = xtrueP[:,ifailsd]
 
-    #contruct velocity one norms
+    # Contruct velocity 1-norms
     xv1n_test = np.empty(xtruePiece.shape[1])
     for i in range(xtruePiece.shape[1]):
         xv1n_test[i] = np.absolute(xtruePiece[2,i]) + np.absolute(xtruePiece[3,i])
 
-    #Decide if successul trajectory
+    # Decide if trajectory was successful
     succTraj = False
     for i in range(iterm-1,0,-1):
         dist = np.linalg.norm(xtruePiece[0:2,i] - xr[0:2])
@@ -437,15 +431,15 @@ def trajectorySimulateC(sim_conditions:SimConditions, mpc_params:MPCParams, fail
             succTraj = True
             break
 
-
+    # Catalogue controller used at each point
     controllerSeq = np.empty(iterm)
     controllerSeq[:int(T/T_cont)] = 0
     for i in impc:
-        controllerSeq[i] = 1
+        controllerSeq[i] = 1    # A value of 1 means the MPC controller was used at this time step
     for i in ifailsf:
-        controllerSeq[i] = 2
+        controllerSeq[i] = 2    # A value of 2 means the LQR failsafe (homing) controller was used at this time step
     for i in ifailsd:
-        controllerSeq[i] = 3
+        controllerSeq[i] = 3    # A value of 3 means the deadbeat debris avoidance controller was used at this time step
     controllerSeq[-1] = controllerSeq[-2]
 
     sim_run = SimRun(iterm, succTraj, xtruePiece, xestO, ctrls, controllerSeq, sum_vec)

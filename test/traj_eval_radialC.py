@@ -35,10 +35,10 @@ ry = 0
 xr = np.array([rx,ry,0.,0.])
 
 is_reject = True
-is_deltav = True
+is_deltav = False
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
-noises = None
+# noises = None
 
 #MPC controller setup
 Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
@@ -86,17 +86,17 @@ figurePlotSave(sim_conditions, debris, sim_run_test)
 
 # animateTrajectory(obj1, obj2, debris)
 
-i = 0
-direc = 'RunObjs/'
-filename = 'Run'
-while (True):
-    sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
-    # figurePlotSave(sim_conditions, debris, sim_run_test)
-    print(sim_run_test.isSuccess)
-    if (sim_run_test.isSuccess):
-        figurePlotSave(sim_conditions, debris, sim_run_test, i)   #remember to add i for overnight runs
-        outfile = open(direc + filename + str(i) + '.pkl','wb')
-        pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris}, outfile)
-        outfile.close()
-        # animateTrajectory(sim_conditions, sim_run_test, debris)
-    i = i + 1
+# i = 0
+# direc = 'RunObjs/'
+# filename = 'Run'
+# while (True):
+#     sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
+#     # figurePlotSave(sim_conditions, debris, sim_run_test)
+#     print(sim_run_test.isSuccess)
+#     if (sim_run_test.isSuccess):
+#         figurePlotSave(sim_conditions, debris, sim_run_test, i)   #remember to add i for overnight runs
+#         outfile = open(direc + filename + str(i) + '.pkl','wb')
+#         pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris}, outfile)
+#         outfile.close()
+#         # animateTrajectory(sim_conditions, sim_run_test, debris)
+#     i = i + 1
