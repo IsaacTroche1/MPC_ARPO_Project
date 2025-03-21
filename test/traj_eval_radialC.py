@@ -11,8 +11,8 @@ side_length = 5.
 detect_dist = 20
 
 #noise setup
-sig_x = 0.002
-sig_y = 0.002
+sig_x = 0.0012
+sig_y = 0.0012
 noise_length = 50
 
 #success conditions setup
@@ -35,7 +35,7 @@ ry = 0
 xr = np.array([rx,ry,0.,0.])
 
 is_reject = True
-is_deltav = False
+is_deltav = True
 success_cond = (distance_tolerance, ang_tolerance)
 noises = Noise((sig_x,sig_y), noise_length)
 noises = None
@@ -86,16 +86,17 @@ figurePlotSave(sim_conditions, debris, sim_run_test)
 
 # animateTrajectory(obj1, obj2, debris)
 
-# i = 0
-# direc = 'RunObjs/'
-# filename = 'Run'
-# while (True):
-#     sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
-#     print(sim_run_test.isSuccess)
-#     if (sim_run_test.isSuccess):
-#         figurePlotSave(sim_conditions, debris, sim_run_test, i)
-#         outfile = open(direc + filename + str(i) + '.pkl','wb')
-#         pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris}, outfile)
-#         outfile.close()
-#         # animateTrajectory(sim_conditions, sim_run_test, debris)
-#     i = i + 1`
+i = 0
+direc = 'RunObjs/'
+filename = 'Run'
+while (True):
+    sim_run_test = trajectorySimulateC(sim_conditions, mpc_params, fail_params, debris)
+    # figurePlotSave(sim_conditions, debris, sim_run_test)
+    print(sim_run_test.isSuccess)
+    if (sim_run_test.isSuccess):
+        figurePlotSave(sim_conditions, debris, sim_run_test, i)   #remember to add i for overnight runs
+        outfile = open(direc + filename + str(i) + '.pkl','wb')
+        pkl.dump({'simcond':sim_conditions,'simrun':sim_run_test,'debris':debris}, outfile)
+        outfile.close()
+        # animateTrajectory(sim_conditions, sim_run_test, debris)
+    i = i + 1
