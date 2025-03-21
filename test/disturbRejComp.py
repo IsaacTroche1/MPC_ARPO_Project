@@ -1,3 +1,13 @@
+r"""
+Script that compares the performance of an MPC controller using offset-free methodologies vs a "normal" MPC
+controller, as noise becomes more constant in time.
+
+It does this by looping through various noise lengths and performing multiple simulations, comparing the average final
+distance from the target - essentially a monte carlo analysis.
+
+Like all \\test scripts, it can be structured significantly better and should only be used as a template/guide.
+"""
+
 from src.mpcsim import *
 from src.trajectorySimulate import trajectorySimulate
 from src.animateTrajectory import animateTrajectory
@@ -74,7 +84,7 @@ for i in range(len(dist_ratios)):
     errComp = np.empty(MCnum)
     for j in range(MCnum):
         # print(j)
-        sim_run_norej = trajectorySimulate(sim_conditions_norej, mpc_params, fail_params, debris) #50 is good
+        sim_run_norej = trajectorySimulate(sim_conditions_norej, mpc_params, fail_params, debris)
         sim_run_rej = trajectorySimulate(sim_conditions_rej, mpc_params, fail_params, debris)
         errDistNoRej = np.linalg.norm(sim_run_norej.x_true_pcw[:,sim_run_norej.i_term-1]-xr)
         errDistRej = np.linalg.norm(sim_run_rej.x_true_pcw[:,sim_run_rej.i_term-1]-xr)
