@@ -1,22 +1,61 @@
+"""
+This module contains class definitions for the various objects utilized throughout the simulation for parameter passing
+and data organization, as well as a function for the plotting and saving of general results.
+"""
+
+import math
 from typing import (Tuple, Any)
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from scipy import sparse
-import math
-
 
 class Noise:
+    """
+    This class defines the statistical characteristics of the additive output noise applied to the plant
+    """
     def __init__(self, noise_std:Tuple[float,float], noise_length:float):
+        """
+        Constructor for the Noise class
+        Args:
+            noise_std: Standard deviation of the random x and y disturbances
+            noise_length: Length, in control intervals, of randomly generated noise
+        """
         self.noise_std = noise_std
         self.noise_length = noise_length
     def constructSigMat(self):
+        """
+        This method generates matrix of standard deviations for convenience
+        :return: Matrix of x and y disturbance standard deviations
+        """
         sigMat = np.diag([self.noise_std[0], self.noise_std[1], 0, 0])
         return sigMat
 
 
 class SimConditions:
+    """
+    This class defines the general simulation conditions that are independent of the control algorithm
+    """
     def __init__(self, x0:np.ndarray[tuple[int, ...], 'float64'], xr:np.ndarray[tuple[int, ...], 'float64'], r_p:float, los_ang:float, r_tol:float, mean_mtn:float, time_stp:float, isReject:bool, suc_cond:Tuple[float,float], noise:Noise=None, inTrack:bool=False, T_cont:float=float('nan'), T_final:int=100, isDeltaV:bool=False):
+        """
+        Constructor for the SimConditions class
+        Args:
+            x0: Initial conditions for simulation, in SI units
+            xr: Target position for simulation, in SI units
+            r_p: Radius of target platform in meters
+            los_ang: LOS cone half-angle in radians
+            r_tol: LOS cone inlay distance in meters
+            hatch_ofst: Angle between LVLH x-axis and docking hatch, in radians
+            mean_mtn: Mean motion of target orbit in rad/s
+            time_stp: MPC algortihm control interval in seconds
+            isReject: Boolean that determines if offset-free method is used to reject disturbances
+            suc_cond: Tolerance conditions that determine if simulation was successful, in SI units
+            noise: Noise object describing additive output noise to plant
+            inTrack: Boolean that signals if the ICs are in the in-track direction
+            T_cont: Continuous-time simulation time step in seconds
+            T_final: Maximum simulation time in seconds
+            isDeltaV: Boolean that determines whether the simulation uses an impulsive delta-v input model
+        """
         self.x0 = x0
         self.xr = xr
         self.r_p = r_p
@@ -34,7 +73,21 @@ class SimConditions:
         self.isDeltaV = isDeltaV
 
 class SimRun:
+    """
+    This class encapsulates the necessary simulation telemetry for plotting and reduction
+    """
     def __init__(self, i_term:int, isSuccess:bool, x_true_pcw, x_est, ctrl_hist, ctrlr_seq, noise_hist):
+        """
+        Constructor for the SimRun class
+        Args:
+            i_term: Time step at which the simulation terminated
+            isSuccess: Boolean that represents if the simulation was successful based on the provided conditions
+            x_true_pcw: Ground truth state trajectories
+            x_est: Estimated state trajectories and disturbances
+            ctrl_hist: History of control commands
+            ctrlr_seq: History of controllers used as an array (see trajectorySimulate.py for definitions)
+            noise_hist: History of x and y additive output disturbances
+        """
         self.i_term = i_term
         self.isSuccess = isSuccess
         self.x_true_pcw = x_true_pcw
@@ -44,11 +97,25 @@ class SimRun:
         self.noise_hist = noise_hist
 
 class Debris:
+    """
+    This class describes the geometry of the debris to be avoided during simulation
+    """
     def __init__(self, center:Tuple[float,float], side_length:float, detect_distance:float):
+        """
+        Constructor for the Debris class
+        Args:
+            center: LVLH location of the center of the debris bounding box in meters
+            side_length: Side length of the debris bounding box in meters
+            detect_distance: Distance the algorithm begins to avoid the debris at
+        """
         self.center = center
         self.side_length = side_length
         self.detect_distance = detect_distance
     def constructVertArr(self):
+        """
+        Convenience method that constructs an array representing the vertex locations of the debris bounding box
+        :return: Array representing the vertex locations of the debris bounding box
+        """
         sqVerts = np.array([[self.center[0] + self.side_length / 2, self.center[1] + self.side_length / 2],
                             [self.center[0] - self.side_length / 2, self.center[1] + self.side_length / 2],
                             [self.center[0] - self.side_length / 2, self.center[1] - self.side_length / 2],
@@ -58,7 +125,21 @@ class Debris:
 
 
 class MPCParams:
+    """
+    This class encapsulates the tunable parameters of the MPC controller utilized in simulation
+    """
     def __init__(self, Q_state, R_input, R_slack, V_ecr, horizons, u_lim:Tuple[float,float], swap_xy:bool=False):
+        """
+        Constructor for the MPCParams class
+        Args:
+            Q_state: Penalty matrix for states
+            R_input: Penalty matrix for inputs
+            R_slack: Penalty matrix for slack variables
+            V_ecr: Scaling factors for slack variables
+            horizons: Dictionary containing prediction, control, and constrain horizons
+            u_lim: Input constraints
+            swap_xy: Convenience parameter that swaps Q,R entries to account for runs with in-track initial conditions
+        """
         self.Q_state = Q_state
         self.R_input = R_input
         if (swap_xy):
@@ -77,7 +158,18 @@ class MPCParams:
 
 
 class FailsafeParams:
+    """
+    This class encapsulates the tunable parameters of the LQR failsafe (homing) and deadbeat collision avoidance controllers utilized in simulation
+    """
     def __init__(self, Q_fail, R_fail, C_int, K_dead):
+        """
+        Constructor for the FailsafeParams class
+        Args:
+            Q_fail: State penalty matrix for LQR failsafe (homing) controller
+            R_fail: Input penalty matrix for LQR failsafe (homing) controller
+            C_int: Output matrix that describes which output is used for integral state in the LQR controller
+            K_dead: Gain matrix of the deadbeat collision avoidance controller
+        """
         self.Q_fail = Q_fail
         self.R_fail = R_fail
         self.C_int = C_int
@@ -85,26 +177,34 @@ class FailsafeParams:
 
 
 def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, saveCounter=None):
+    r"""
+    This function plots a general simulation run. If a counter is provided, it catalogues and saves the plot in test\\RunFigs.
 
+    :param sim_conditions: A SimConditions object representing general simulation conditions (initial state, orbital parameters, etc.)
+    :param debris: A Debris object containing information describing the debris to be avoided by the control algorithm during simulation
+    :param sim_run: A SimRun object with the necessary telemetry for plotting
+    :param saveCounter: Counter for automatic saving of plots over multiple runs
+    """
+
+    # Unpack sim_run object
     xtruePiece = sim_run.x_true_pcw
     xestO = sim_run.x_est
     noiseStored = sim_run.noise_hist
     ctrls = sim_run.ctrl_hist
     iterm = sim_run.i_term
     controllerSeq = sim_run.ctrlr_seq
-    in_track = False
 
-
+    # Helper function that determines the color of plotted trajectory based on controller used at each time step
     def numberToColor(num):
-        if (num == 1 or num == 0):
+        if (num == 1 or num == 0):  # MPC controller
             col = 'b'
-        elif (num == 2):
+        elif (num == 2):    # LQR failsafe controller
             col = 'r'
-        elif (num == 3):
+        elif (num == 3):    # Deadbeat debris collision avoidance controller
             col = 'y'
         return col
 
-    # Simulation Constants
+    # Unpack simulation conditions
     gam = sim_conditions.los_ang
     rp = sim_conditions.r_p
     rtot = sim_conditions.r_tol
@@ -121,6 +221,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     if debris is not None:
         sqVerts = debris.constructVertArr()
 
+    # X values for LOS cone plot
     xInt = 0.1
     if (sim_conditions.inTrack):
         xSampsU = np.arange(-20, 0+xInt, xInt)
@@ -129,6 +230,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         xSampsU = np.arange(0, 110, xInt)
         xSampsL = xSampsU
 
+    # Handle discrete and continuous time simulations
     if (math.isnan(T_cont)):
         uTime = [T * x for x in range(1, iterm + 1)]
         xTimeC = [T * x for x in range(iterm)]
@@ -141,12 +243,12 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         xTimeC = np.arange(0, time_final, T_cont)[:iterm]
         #xTimeD = xTimeC
 
-    # contruct velocity one norms
+    # Construct velocity 1-norms    TODO replace redundant code
     xv1n = np.empty(xtruePiece.shape[1])
     for i in range(xtruePiece.shape[1]):
         xv1n[i] = np.absolute(xtruePiece[2, i]) + np.absolute(xtruePiece[3, i])
 
-    # Plotting Constraints and Obstacles
+    # Plotting constraints and obstacles
     yVertSamps = np.arange(-10, 10 + xInt, xInt)
     xVertSamps = np.ones(yVertSamps.shape)
     yConeL = ((rp - rtot) * math.sin(gam) / (math.cos(phi - gam))) + math.tan(phi - gam) * xSampsL
@@ -158,7 +260,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
     topCircle = np.sqrt(rp ** 2 - np.round(xCircSq, 2))
     botCircle = -np.sqrt(rp ** 2 - np.round(xCircSq, 2))
 
-
+    # State-space trajectory and constraint plots
     if (sim_conditions.inTrack):
         ConsComb, (geoConp, velConp) = plt.subplots(nrows=1, ncols=2)
         ConsComb.set_size_inches((7, 5))
@@ -211,8 +313,8 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
                  label='_nolegend_')
     velConp.plot(np.abs(xtruePiece[0, :iterm + 1] - rx) + np.abs(xtruePiece[1, :iterm + 1] - ry),
                  np.reshape(xv1n[:iterm], iterm), color='b', label='Relative Velocity L1 Norm')
-    # velConp.legend(['Relative Velocity L1 Norm (m/s)'], loc='upper left', prop={'size': 5})
 
+    # State trajectory plots
     if (sim_conditions.noise is None):
         estTrueStates = plt.figure(2)
         x1p = plt.subplot2grid((4, 3), (0, 0), rowspan=1, colspan=3)
@@ -283,6 +385,7 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
 
         estTrueStates.align_labels()
 
+    # Control history plot
     controlPlot = plt.figure(3)
     u1p = plt.subplot2grid((2, 3), (0, 0), rowspan=1, colspan=3)
     u2p = plt.subplot2grid((2, 3), (1, 0), rowspan=1, colspan=3)
@@ -300,13 +403,12 @@ def figurePlotSave(sim_conditions:SimConditions, debris:Debris, sim_run:SimRun, 
         u2p.set_ylabel('$\mathregular{u_y}$ $\mathregular{(m/s)}$')
     u2p.set_xlabel('Time (s)')
 
+    # Label and save plots if provided a counter
     if saveCounter != None:
         iter = str(saveCounter) + '.png'
         direc = 'RunFigs/'
-        # TWODtraj.savefig(direc + '2Dtraj' + iter)
         estTrueStates.savefig(direc + 'trueANDest' + iter,dpi=300)
         controlPlot.savefig(direc + 'contrHist' + iter,dpi=300)
-        # velCon.savefig(direc + 'velConstraint' + iter)
         ConsComb.savefig(direc + 'combCons' + iter,dpi=300)
         plt.close('all')
     else:
