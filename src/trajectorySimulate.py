@@ -14,7 +14,7 @@ from src.simhelpers import *
 
 def trajectorySimulate(sim_conditions:SimConditions, mpc_params:MPCParams, fail_params:FailsafeParams, debris:Debris):
 
-    random.seed(124)
+    # random.seed(7)
 
     isReject = sim_conditions.isReject
     isDeltaV = sim_conditions.isDeltaV

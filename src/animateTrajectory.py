@@ -137,7 +137,7 @@ def animateTrajectory(sim_conditions:SimConditions, sim_run:SimRun, debris:Debri
     thetaTarg = 0
     thetaPlat = 0
     for i in range(1,nanim):
-        rate(5)
+        rate(4)
 
         if (controllerSeq[i] == 1):
             scene.caption = '<b>Using controller: MPC</b>'

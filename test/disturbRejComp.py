@@ -1,69 +1,101 @@
-from MPCrendezKALMANdisturb import *
-import matplotlib.pyplot as plt
+from src.mpcsim import *
+from src.trajectorySimulate import trajectorySimulate
+from src.animateTrajectory import animateTrajectory
+from scipy import sparse
+from matplotlib import pyplot as plt
 
+#debris setup
+center = (40.,0.)
+side_length = 5.
+detect_dist = 20
 
-#Simulation Constants
-gam = 10*(np.pi/180)
-rp = 2.5
-rtot = 2.49
-phi = 0*(np.pi/180)
-n = 1.107e-3
-T = 0.5
+#noise setup
+sig_x = 0.7
+sig_y = 0.7
+noise_length = 50
 
-#Plotting Constraints and Obstacles
-xInt = 0.1
-xSamps = np.arange(0,110,xInt)
-yVertSamps = np.arange(-10,10+xInt,xInt)
-xVertSamps = np.ones(yVertSamps.shape)
-yConeL = ((rp-rtot)*math.sin(gam)/(math.cos(phi-gam))) + math.tan(phi-gam)*xSamps
-yConeU = -((rp-rtot)*math.sin(gam)/(math.cos(phi+gam))) + math.tan(phi+gam)*xSamps
-vertCons = rp*math.sin(gam)
-vertCons = rp
-xVertSamps = xVertSamps*vertCons
-xCirc = np.arange(-rp,rp+xInt,xInt)
-xCircSq = np.square(xCirc)
-topCircle = np.sqrt(rp**2-np.round(xCircSq,2))
-botCircle = -np.sqrt(rp**2-np.round(xCircSq,2))
+#success conditions setup
+distance_tolerance = 0.2
+ang_tolerance = 45
 
-ifail1, xTime1, xestO1, xtrueP1, noiseStored1 = disturbanceReject(50, 0, False)
-ifail2, xTime2, xestO2, xtrueP2, noiseStored2 = disturbanceReject(50, 1, False)
-
-rx = rp
+#general sim setup
+platform_radius = 2.5
+tolerance_radius = 1.5
+los_angle = 10*(np.pi/180)
+mean_motion = 1.107e-3
+sample_time = 0.5
+in_track = False
+x0 = np.array([100.,10.,0.,0])
+rx = platform_radius
 ry = 0
 xr = np.array([rx,ry,0.,0.])
 
-#This comment is a test
+is_deltav = False
+success_cond = (distance_tolerance, ang_tolerance)
+noises = Noise((sig_x,sig_y), noise_length)
+# noises = None
 
-# #monte carlo loop around this
-# MCnum = 200
-# errNon = np.empty(MCnum)
-# errComp = np.empty(MCnum)
-# for i in range(MCnum):
-#     print(i)
-#     ifail1, xTime1, xestO1, xtrueP1, noiseStored1 = disturbanceReject(50, 0, False) #50 is good
-#     ifail2, xTime2, xestO2, xtrueP2, noiseStored2 = disturbanceReject(50, 1, False)
-#     errDist1 = np.linalg.norm(xtrueP1[:,ifail1]-xr)
-#     errDist2 = np.linalg.norm(xtrueP2[:,ifail2]-xr)
-#     errNon[i] = errDist1
-#     errComp[i] = errDist2
-#
-#
-# avgDistNon = np.mean(errNon)
-# avgDistComp = np.mean(errComp)
-#
-# print(ifail1)
-# print(ifail2)
+#MPC controller setup
+Q_mpc = 8e+02*sparse.diags([0.2**2., 10**2., 3.8**2, 900]) #This is for radial approach, swap_xy in MPCparam init for auto in-track conversion
+R_mpc = 1000**2*sparse.diags([1, 1])
+R_mpc_s = 5**2*sparse.eye(5)  #make argument programmatic
+ECRscale = 50000
+v_ecr = ECRscale*np.ones(5) #0 for hard constraints
+v_ecr[-2] = -1*v_ecr[-2]
+v_ecr[-1] = 0
+horizons = {"Nx":40,
+            "Nc":5,
+            "Nb":5}
+ulim = (0.2, 0.2)
 
-plt.figure(1)
-plt.plot(xCirc,topCircle)
-plt.plot(xCirc,botCircle)
-plt.plot(xSamps,yConeL)
-plt.plot(xSamps,yConeU)
-plt.plot(xVertSamps,yVertSamps)
-plt.plot(xtrueP1[0,:ifail1+1],xtrueP1[1,:ifail1+1], label = "scale 0")
-plt.plot(xtrueP2[0,:ifail2+1],xtrueP2[1,:ifail2+1], label = "scale 1")
-plt.legend(loc = "lower right")
-ax = plt.gca()
-ax.set_aspect('equal')
+#failsafe controller setup
+Q_failsafe = 0.005*np.diag([0.0001, 1, 100000., 1., 0.01])
+R_failsafe = 100*np.diag([1, 1])
+C_refx = np.eye(1,4)
+
+#populate conditions
+sim_conditions_norej = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, False, success_cond, noises, in_track, T_final=150, isDeltaV=is_deltav)
+sim_conditions_rej = SimConditions(x0, xr, platform_radius, los_angle, tolerance_radius, mean_motion, sample_time, True, success_cond, noises, in_track, T_final=150, isDeltaV=is_deltav)
+mpc_params = MPCParams(Q_mpc, R_mpc, R_mpc_s, v_ecr, horizons, ulim)
+debris = Debris(center, side_length, detect_dist)
+# debris = None
+fail_params = FailsafeParams(Q_failsafe,R_failsafe,C_refx,np.zeros([2,2]))
+
+dist_ratios = np.empty(10)
+noise_lengths = np.array([1.,10.,20.,30.,50.,70.,100.,150.,200.,250.])
+
+for i in range(len(dist_ratios)):
+    print(i)
+    new_noise = Noise((sig_x, sig_y), noise_lengths[i])
+    sim_conditions_norej.noise = new_noise
+    sim_conditions_rej.noise = new_noise
+    MCnum = 100
+    errNon = np.empty(MCnum)
+    errComp = np.empty(MCnum)
+    for j in range(MCnum):
+        # print(j)
+        sim_run_norej = trajectorySimulate(sim_conditions_norej, mpc_params, fail_params, debris) #50 is good
+        sim_run_rej = trajectorySimulate(sim_conditions_rej, mpc_params, fail_params, debris)
+        errDistNoRej = np.linalg.norm(sim_run_norej.x_true_pcw[:,sim_run_norej.i_term-1]-xr)
+        errDistRej = np.linalg.norm(sim_run_rej.x_true_pcw[:,sim_run_rej.i_term-1]-xr)
+        errNon[j] = errDistNoRej
+        errComp[j] = errDistRej
+        # errNon[j] = 2
+        # errComp[j] = 1
+
+    # print(sim_conditions_norej.noise.noise_length)
+    # print(sim_conditions_rej.noise.noise_length)
+    avgDistNon = np.mean(errNon)
+    avgDistComp = np.mean(errComp)
+    dist_ratios[i] = avgDistComp/avgDistNon
+
+
+plot = plt.figure(1)
+plt.plot(noise_lengths*sim_conditions_rej.time_stp, dist_ratios,'x-')
+plt.title('Final Distance Ratio vs Noise Length')
+plt.ylabel('Final Distance Ratio')
+plt.xlabel('Noise Length (s)')
+
 plt.show()
+
 
