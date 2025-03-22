@@ -17,7 +17,7 @@ Minimal documentation is provided within the source code itself.
 
 The MPC algorithm implements the Operator-Splitting Quadratic Program (QP) solver, [OSQP](https://github.com/osqp/osqp). 
 
-It also utilizes [Vpython](https://github.com/vpython) for rough 3D animations. 
+It utilizes [Vpython](https://github.com/vpython) for rough 3D animations of generated trajectories. 
 
 For literature sources, please see the  "References" section at the end of the slides.
 # `src/` Directory
