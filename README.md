@@ -42,7 +42,7 @@ This function is used to perfrom ***continuous-time*** simulations of the MPC al
 This function is used to generate basic low-fidelity animations of a given trajectory in Vpython.
 
 # `test/` Directory
-This directory contains very roughly constructed scripts used offline to generate and reduce the data shown in REFERENCE HERE.
+This directory contains very roughly constructed scripts used offline to generate and reduce the data shown in [`MPC_ARPO_Slides.pptx`](MPC_ARPO_Slides.pptx).
 
 **These can be optimized signifcantly, and should only be used as rough guides for source code use.**
 
