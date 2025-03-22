@@ -15,9 +15,11 @@ performing terminal RPO manuevers using coplanar and circular orbit assumptions.
 
 Minimal documentation is provided within the source code itself.
 
-The MPC algorithm implements the Quadratic Program (QP) solver OSQP. REFERENCE HERE
+The MPC algorithm implements the Operator-Splitting Quadratic Program (QP) solver, [OSQP](https://github.com/osqp/osqp). 
 
-For literature sources, please see the  "References" section at the end of REFERENCE HERE.
+It also utilizes [Vpython](https://github.com/vpython) for rough 3D animations. 
+
+For literature sources, please see the  "References" section at the end of the slides.
 # `src/` Directory
 This directory contains the necessary code for the algorithm and simulation.
 
@@ -37,7 +39,7 @@ This module contains helper functions used by the simulation for organization/re
 This function is used to perfrom ***continuous-time*** simulations of the MPC algorithm on a ***nonlinear plant***.
 
 ## [`src/animateTrajectory.py`](src/animateTrajectoryC.py)
-This function is used to generate basic low-fidelity animations of a given trajectory in Vpython. LINK HERE
+This function is used to generate basic low-fidelity animations of a given trajectory in Vpython.
 
 # `test/` Directory
 This directory contains very roughly constructed scripts used offline to generate and reduce the data shown in REFERENCE HERE.
