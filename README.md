@@ -1,6 +1,6 @@
 ![til](misc/assets/turn2gif.gif)
 # Overview
-This is the codebase for the project described in these [slides](MPC_ARPO_Slides.pptx). 
+Codebase for the project described in these [slides](MPC_ARPO_Slides.pptx). 
 
 Implements a custom offset-free Model Predictive Control (MPC) algortihm for the autonomous guidance of a 0-dimensional chaser spacecraft
 performing terminal RPO manuevers using coplanar and circular orbit assumptions.
