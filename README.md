@@ -24,7 +24,7 @@ For literature sources, please see the  "References" section at the end of the s
 This directory contains the necessary code for the algorithm and simulation.
 
 For a general idea of code function, pictured below is a block diagram describing the operation of [`src/simulateTrajectoryC.py`](src/simulateTrajectoryC.py)- currently the most complex simulation in the repo. 
-![alt text](misc/assets/sim_traj_nc.png)
+![alt text](misc/assets/algo_block.png)
 
 ## [`src/mpcsim.py`](src/mcsim.py)
 This module defines various objects used for handling the many simulation and controller parameters associated with the
