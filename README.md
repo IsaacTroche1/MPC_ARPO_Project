@@ -23,6 +23,9 @@ For literature sources, please see the  "References" section at the end of the s
 # `src/` Directory
 This directory contains the necessary code for the algorithm and simulation.
 
+For example, pictured below is a block diagram describing the operation of [`src/simulateTrajectoryC.py`](src/simulateTrajectoryC.py).
+![alt text](misc/assets/sim_traj_nc.png)
+
 ## [`src/mpcsim.py`](src/mcsim.py)
 This module defines various objects used for handling the many simulation and controller parameters associated with the
 algorithm.
