@@ -23,7 +23,7 @@ For literature sources, please see the  "References" section at the end of the s
 # `src/` Directory
 This directory contains the necessary code for the algorithm and simulation.
 
-For a general idea of code functionality, pictured below is a block diagram describing the operation of [`src/simulateTrajectoryC.py`](src/simulateTrajectoryC.py)- currently the most complex simulation in the repo:
+For a general idea of code functionality, pictured below is a block diagram describing the operation of [`src/trajectorySimulateC.py`](src/trajectorySimulateC.py)- currently the most complex simulation in the repo:
 
 ![alt text](misc/assets/algo_block.png)
 
@@ -33,13 +33,13 @@ algorithm.
 
 It also contains a function for plotting general simulation results.
 
-## [`src/simulateTrajectory.py`](src/simulateTrajectory.py)
+## [`src/trajectorySimulate.py`](src/trajectorySimulate.py)
 This function is used to perfrom ***discrete-time simulations*** of the MPC algorithm on a ***linear plant*** (Clohessy-Wiltshire eqns.).
 
 ### [`src/simhelpers.py`](src/simhelpers.py)
 This module contains helper functions used by the simulation for organization/readability.
 
-## [`src/simulateTrajectoryC.py`](src/simulateTrajectoryC.py)
+## [`src/trajectorySimulateC.py`](src/trajectorySimulateC.py)
 This function is used to perfrom ***continuous-time*** simulations of the MPC algorithm on a ***nonlinear plant***.
 
 ## [`src/animateTrajectory.py`](src/animateTrajectoryC.py)
